@@ -150,10 +150,22 @@ VisualSenderCoachV1::sendGoal( const PObject & goal )
 void
 VisualSenderCoachV1::sendBall()
 {
+    // NOTE (3D ball extension plan, Step 6 of 9): coach's look/see channel
+    // already reports ground-truth (unnoised) positions/velocities, unlike
+    // the player's noisy angle/dist model in visualsenderplayer.cpp -- so
+    // ball height is appended here as the raw z value (parity with
+    // fullstate, Step 5), not a noisy elevation angle. The (pos,vel,z)
+    // overload is called unconditionally; virtual dispatch on the
+    // resolved SerializerCoach subclass decides whether z actually
+    // appears in the output -- the base SerializerCoach default body is
+    // a no-op, reproducing the legacy (pos,vel)-only byte layout for
+    // pre-v20 connections, while SerializerCoachStdv20 overrides it to
+    // append z (mirrors sendHighBall's elevation refactor).
     serializer().serializeVisualObject( transport(),
                                         calcName( stadium().ball() ),
                                         stadium().ball().pos(),
-                                        stadium().ball().vel() );
+                                        stadium().ball().vel(),
+                                        stadium().ball().posZ() );
 }
 
 void

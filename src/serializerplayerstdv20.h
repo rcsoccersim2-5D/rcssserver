@@ -57,6 +57,27 @@ public:
                             const double & vel_y,
                             const double & vel_z ) const override;
 
+    // NOTE (3D ball extension plan, Step 6 of 9): overrides the two
+    // elevation-carrying serializeVisualObject() overloads (serializer.h,
+    // SerializerPlayer) to actually emit the trailing elevation field --
+    // the base SerializerPlayer default (inherited by every pre-v20
+    // subclass) drops it and reproduces the legacy byte layout instead.
+    virtual
+    void serializeVisualObject( std::ostream & strm,
+                                const std::string & name,
+                                const double & dist,
+                                const int dir,
+                                const double & elevation ) const override;
+
+    virtual
+    void serializeVisualObject( std::ostream & strm,
+                                const std::string & name,
+                                const double & dist,
+                                const int dir,
+                                const double & dist_chg,
+                                const double & dir_chg,
+                                const double & elevation ) const override;
+
 };
 
 }

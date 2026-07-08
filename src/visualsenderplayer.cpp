@@ -539,6 +539,9 @@ VisualSenderPlayerV1::sendHighFlag( const PObject & flag )
 void
 VisualSenderPlayerV1::sendLowBall( const MPObject & ball )
 {
+    // NOTE (3D ball extension plan, Step 6 of 9): elevation is deliberately
+    // NOT added to the low-quality path -- it already omits `dist` entirely
+    // (see sendHighBall for the high-quality/elevation-carrying path).
     const double ang = calcRadDir( ball );
     const double un_quant_dist = calcUnQuantDist( ball );
 
@@ -565,6 +568,39 @@ VisualSenderPlayerV1::sendHighBall( const MPObject & ball )
     const double actual_dist = calcUnQuantDist( ball );
     const double noisy_dist = noisyObservation().calcDist( actual_dist, ball.pos().distance( cachedFocusPoint() ) );
 
+    // NOTE (3D ball extension plan, Step 6 of 9; refactored to the standard
+    // version-subclass pattern): elevation is computed and sent UNCONDITIONALLY
+    // here -- there is no runtime version check anymore. Whether the trailing
+    // elevation field actually appears in the byte stream is decided purely by
+    // virtual dispatch on serializeVisualObject(): the base SerializerPlayer
+    // default (serializer.h, inherited by every pre-v20 serializer) drops the
+    // elevation argument and reproduces the legacy byte layout, while
+    // SerializerPlayerStdv20 (serializerplayerstdv20.h/.cpp) overrides it to
+    // actually emit the field. `elevation` is computed from the true (unnoised)
+    // ball height/distance, exactly like `ang`/`actual_dist` above.
+    //
+    // FIX (post-review): elevation is an ANGLE (~0..pi/2 rad); actual_dist is a
+    // DISTANCE in meters. NoisyObservation::calcDist() takes two
+    // distances-to-the-same-target-in-meters (self-view vs. focus-point view)
+    // -- it is not a generic 'scale any scalar' helper, and calling it with the
+    // angle plugged into a meters-shaped slot mixed two physically unrelated
+    // magnitudes, causing the result to snap to 0.0 or jump discontinuously at
+    // specific distances (e.g. exactly 55m) regardless of the true elevation.
+    // Fixed by reusing the SAME proportional-noise RATIO already computed for
+    // `noisy_dist` above (noisy_dist / actual_dist) -- exactly the pattern
+    // QuantizeObservation::calcVel()/GaussianObservation::calcVel() already use
+    // to apply distance-scaled noise to an unrelated-unit quantity (dist_chg)
+    // via multiplication rather than by feeding it through calcDist() itself
+    // (see e.g. '*dist_chg *= ( noisy_dist / actual_dist );' above). The ratio is
+    // dimensionless and stays close to 1.0, so it perturbs `elevation` smoothly
+    // and keeps it in radians throughout -- no unit mismatch. ball.posZ() is
+    // always exactly 0.0 in 2D mode (Step 2), so this is a no-op elevation of 0
+    // for existing/default deployments.
+    const double dist_noise_ratio = ( actual_dist > EPS
+                                      ? noisy_dist / actual_dist
+                                      : 1.0 );
+    const double elevation = std::atan2( stadium().ball().posZ(), actual_dist ) * dist_noise_ratio;
+
     if ( std::fabs( ang ) < self().visibleAngle() * 0.5
          && actual_dist < self().playerType()->ballMaxObservationLength() )
     {
@@ -573,7 +609,8 @@ VisualSenderPlayerV1::sendHighBall( const MPObject & ball )
             serializer().serializeVisualObject( transport(),
                                                 calcName( ball ),
                                                 noisy_dist,
-                                                calcDegDir( ang ) );
+                                                calcDegDir( ang ),
+                                                elevation );
         }
         else
         {
@@ -585,7 +622,8 @@ VisualSenderPlayerV1::sendHighBall( const MPObject & ball )
                                                 noisy_dist,
                                                 calcDegDir( ang ),
                                                 dist_chg,
-                                                dir_chg );
+                                                dir_chg,
+                                                elevation );
         }
     }
     else if ( actual_dist <= self().VISIBLE_DISTANCE )
@@ -593,7 +631,8 @@ VisualSenderPlayerV1::sendHighBall( const MPObject & ball )
         serializer().serializeVisualObject( transport(),
                                             calcCloseName( ball ),
                                             noisy_dist,
-                                            calcDegDir( ang ) );
+                                            calcDegDir( ang ),
+                                            elevation );
     }
 }
 

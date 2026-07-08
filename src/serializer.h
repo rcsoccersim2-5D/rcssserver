@@ -396,6 +396,47 @@ public:
                << ')';
       }
 
+    // NOTE (3D ball extension plan, Step 6 of 9; refactored to the
+    // standard version-subclass pattern): these two overloads are ball-
+    // only and carry a trailing noisy elevation-angle field. Unlike the 5
+    // pre-existing overloads above (which stay non-virtual/unchanged),
+    // these are VIRTUAL so a new protocol-version subclass can override
+    // them to actually emit the field -- see SerializerPlayerStdv20
+    // (serializerplayerstdv20.h/.cpp). The default body here reproduces
+    // the LEGACY (pre-Step-6) byte layout exactly (elevation dropped, same
+    // output as the corresponding fewer-argument overload above), so every
+    // pre-v20 serializer subclass that doesn't override these continues to
+    // behave byte-identically to before Step 6 existed. Call sites
+    // (visualsenderplayer.cpp's sendHighBall) call these unconditionally;
+    // virtual dispatch alone decides whether the field is actually sent.
+    virtual
+    void serializeVisualObject( std::ostream & strm,
+                                const std::string & name,
+                                const double & dist,
+                                const int dir,
+                                const double & /* elevation */ ) const
+      {
+          strm << " (" << name << ' ' << dist << ' ' << dir << ')';
+      }
+
+    // "velocity present" variant of the elevation-carrying overload above,
+    // mirroring the existing dist/dir/dist_chg/dir_chg overload. Same
+    // legacy-reproducing default as above (elevation dropped).
+    virtual
+    void serializeVisualObject( std::ostream & strm,
+                                const std::string & name,
+                                const double & dist,
+                                const int dir,
+                                const double & dist_chg,
+                                const double & dir_chg,
+                                const double & /* elevation */ ) const
+      {
+          strm << " (" << name << ' ' << dist << ' ' << dir
+               << ' ' << dist_chg << ' ' << dir_chg
+               << ')';
+      }
+
+
     virtual
     void serializeVisualPlayer( std::ostream &, /* strm */
                                 const Player &, /* player */
@@ -770,6 +811,24 @@ public:
                                 const PVector & ) const
       { }
 
+    // NOTE (3D ball extension plan, Step 6 of 9): coach's `look`/`see`
+    // channel already reports ground-truth (unnoised) positions/velocities
+    // (unlike the player's noisy angle/dist model), so ball height is
+    // exposed here as the raw z value -- not a noisy elevation angle -- for
+    // parity with fullstate (Step 5). Purely additive; default no-op body
+    // like the other virtuals above so old SerializerCoachStdv* subclasses
+    // that don't override it are unaffected.
+    virtual
+    void serializeVisualObject( std::ostream & strm,
+                                const std::string & name,
+                                const PVector & pos,
+                                const PVector & vel,
+                                const double & /* z */ ) const
+      {
+          serializeVisualObject( strm, name, pos, vel );
+      }
+
+
     virtual
     void serializeVisualObject( std::ostream &,
                                 const std::string &,
@@ -930,6 +989,18 @@ public:
                                 const PVector & vel ) const
       {
           coachSerializer().serializeVisualObject( strm, name, pos, vel );
+      }
+
+    // NOTE (3D ball extension plan, Step 6 of 9): delegates the new
+    // raw-z ball overload (SerializerCoach, above) exactly like every
+    // other serializeVisualObject() overload in this class.
+    void serializeVisualObject( std::ostream & strm,
+                                const std::string & name,
+                                const PVector & pos,
+                                const PVector & vel,
+                                const double & z ) const
+      {
+          coachSerializer().serializeVisualObject( strm, name, pos, vel, z );
       }
 
     void serializeVisualObject( std::ostream & strm,

@@ -59,6 +59,34 @@ SerializerPlayerStdv20::serializeFSBall3D( std::ostream & strm,
          << ')';
 }
 
+void
+SerializerPlayerStdv20::serializeVisualObject( std::ostream & strm,
+                                               const std::string & name,
+                                               const double & dist,
+                                               const int dir,
+                                               const double & elevation ) const
+{
+    strm << " (" << name << ' ' << dist << ' ' << dir
+         << ' ' << elevation
+         << ')';
+}
+
+void
+SerializerPlayerStdv20::serializeVisualObject( std::ostream & strm,
+                                               const std::string & name,
+                                               const double & dist,
+                                               const int dir,
+                                               const double & dist_chg,
+                                               const double & dir_chg,
+                                               const double & elevation ) const
+{
+    strm << " (" << name << ' ' << dist << ' ' << dir
+         << ' ' << dist_chg << ' ' << dir_chg
+         << ' ' << elevation
+         << ')';
+}
+
+
 const
 SerializerPlayer::Ptr
 SerializerPlayerStdv20::create()
