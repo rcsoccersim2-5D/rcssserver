@@ -72,9 +72,11 @@ SerializerCoachStdv20::create()
     return ptr;
 }
 
-// Intentionally NOT registered via SerializerCoach::factory().autoReg()
-// here -- protocol version number assignment + factory registration is
-// Step 7's responsibility ('Protocol/Version Plumbing'). This file is
-// also not yet added to Makefile.am/CMakeLists.txt for the same reason.
+namespace {
+// 3D ball extension plan, Step 7 ("Protocol/Version Plumbing"): registered
+// as version 20 -- confirmed non-colliding by re-grepping serializercoachstdv14.cpp,
+// whose highest registration is v19 (SerializerCoachStdv14::create at version 19).
+RegHolder v20 = SerializerCoach::factory().autoReg( &SerializerCoachStdv20::create, 20 );
+}
 
 }

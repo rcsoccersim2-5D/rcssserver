@@ -201,8 +201,17 @@ const int REC_VERSION_3 = 3;
 const int REC_VERSION_4 = 4;
 const int REC_VERSION_5 = 5;
 const int REC_VERSION_6 = 6;
+// 3D ball extension plan, Step 7 ("Protocol/Version Plumbing"): confirmed
+// non-colliding by re-grepping types.h, whose prior highest REC_VERSION_*
+// was REC_VERSION_6. Adds ball z to the game log via SerializerMonitorStdv6
+// (see Logger::setSenders()'s monitor_version = log_version - 1 mapping).
+const int REC_VERSION_7 = 7;
 const int REC_VERSION_JSON = -1;
+// NOTE: DEFAULT_REC_VERSION intentionally stays at REC_VERSION_6 so
+// existing deployments keep logging in the legacy format unless an
+// operator explicitly opts in via gameLogVersion=7.
 const int DEFAULT_REC_VERSION = REC_VERSION_6;
+
 
 enum DispInfoMode {
     NO_INFO = 0,

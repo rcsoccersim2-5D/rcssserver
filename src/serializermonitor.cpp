@@ -611,7 +611,16 @@ SerializerMonitorJSON::serializeBall( std::ostream & os,
        << ','
        << std::quoted( "vx" ) << ':' << Quantize( ball.vel().x, POS_PREC )
        << ','
-       << std::quoted( "vy" ) << ':' << Quantize( ball.vel().y, POS_PREC );
+       << std::quoted( "vy" ) << ':' << Quantize( ball.vel().y, POS_PREC )
+       // 3D ball extension plan, Step 7 ("Protocol/Version Plumbing"):
+       // parity with the new SerializerMonitorStdv6::serializeBall() --
+       // SerializerMonitorJSON is registered at REC_VERSION_JSON/-1 (an
+       // always-latest format with no incremental version chain of its
+       // own, unlike the numbered Stdv1..6 classes), so there is no
+       // legacy JSON snapshot to preserve byte-for-byte; JSON consumers
+       // are expected to tolerate additional named fields.
+       << ','
+       << std::quoted( "z" ) << ':' << Quantize( ball.posZ(), POS_PREC );
     os << '}';
 
 }

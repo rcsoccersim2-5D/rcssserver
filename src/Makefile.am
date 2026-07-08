@@ -38,11 +38,13 @@ rcssserver_SOURCES = \
 	serializercoachstdv8.cpp \
 	serializercoachstdv13.cpp \
 	serializercoachstdv14.cpp \
+	serializercoachstdv20.cpp \
 	serializercommonstdv1.cpp \
 	serializercommonstdv7.cpp \
 	serializercommonstdv8.cpp \
 	serializercommonjson.cpp \
 	serializermonitor.cpp \
+	serializermonitorstdv6.cpp \
 	serializeronlinecoachstdv1.cpp \
 	serializeronlinecoachstdv6.cpp \
 	serializeronlinecoachstdv7.cpp \
@@ -56,6 +58,7 @@ rcssserver_SOURCES = \
 	serializerplayerstdv13.cpp \
 	serializerplayerstdv14.cpp \
 	serializerplayerstdv18.cpp \
+	serializerplayerstdv20.cpp \
 	serverparam.cpp \
 	stadium.cpp \
 	stdoutsaver.cpp \
@@ -113,6 +116,7 @@ noinst_HEADERS = \
 	serializercoachstdv8.h \
 	serializercoachstdv13.h \
 	serializercoachstdv14.h \
+	serializercoachstdv20.h \
 	serializercommonstdv1.h \
 	serializercommonstdv7.h \
 	serializercommonstdv8.h \
@@ -130,7 +134,9 @@ noinst_HEADERS = \
 	serializerplayerstdv13.h \
 	serializerplayerstdv14.h \
 	serializerplayerstdv18.h \
+	serializerplayerstdv20.h \
 	serializermonitor.h \
+	serializermonitorstdv6.h \
 	serverparam.h \
 	stadium.h \
 	stdoutsaver.h \

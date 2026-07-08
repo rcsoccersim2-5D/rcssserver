@@ -577,10 +577,10 @@ RegHolder vp16 = FullStateSenderPlayer::factory().autoReg( &create< FullStateSen
 RegHolder vp17 = FullStateSenderPlayer::factory().autoReg( &create< FullStateSenderPlayerV13 >, 17 );
 RegHolder vp18 = FullStateSenderPlayer::factory().autoReg( &create< FullStateSenderPlayerV18 >, 18 );
 RegHolder vp19 = FullStateSenderPlayer::factory().autoReg( &create< FullStateSenderPlayerV18 >, 19 );
-// NOTE (3D ball extension plan, Step 5): FullStateSenderPlayerV20 (above)
-// is intentionally NOT registered here yet. Step 7 ("Protocol/Version
-// Plumbing") will confirm the real next-free version number and add its
-// autoReg( &create< FullStateSenderPlayerV20 >, N ) line at that time.
+// 3D ball extension plan, Step 7 ("Protocol/Version Plumbing"): registered
+// as version 20 -- confirmed non-colliding (prior max was 19, registered
+// directly above).
+RegHolder vp20 = FullStateSenderPlayer::factory().autoReg( &create< FullStateSenderPlayerV20 >, 20 );
 }
 
 }

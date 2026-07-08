@@ -362,6 +362,28 @@ public:
 };
 
 
+// 3D ball extension plan, Step 7 ("Protocol/Version Plumbing"): game log
+// version 7 -- adds ball z via the SerializerMonitorStdv6 selected by
+// Logger::setSenders()'s monitor_version = log_version - 1 mapping.
+class InitSenderLoggerV7
+        : public InitSenderLoggerV6 {
+public:
+    InitSenderLoggerV7( const Params & params );
+
+protected:
+    InitSenderLoggerV7( const Params & params,
+                        const std::shared_ptr< InitSenderCommon > common );
+
+public:
+    virtual
+    ~InitSenderLoggerV7() override;
+
+    virtual
+    void sendHeader() override;
+
+};
+
+
 /*!
   \brief version 6 of the init sender for Logger (JSON format)
 */

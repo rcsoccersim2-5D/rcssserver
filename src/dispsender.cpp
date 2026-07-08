@@ -1155,6 +1155,13 @@ RegHolder vl3 = DispSenderLogger::factory().autoReg( &create< DispSenderLoggerV3
 RegHolder vl4 = DispSenderLogger::factory().autoReg( &create< DispSenderLoggerV4 >, 4 );
 RegHolder vl5 = DispSenderLogger::factory().autoReg( &create< DispSenderLoggerV4 >, 5 );
 RegHolder vl6 = DispSenderLogger::factory().autoReg( &create< DispSenderLoggerV4 >, 6 );
+// 3D ball extension plan, Step 7 ("Protocol/Version Plumbing"): game log
+// version 7 reuses DispSenderLoggerV4 exactly like v5/v6 above -- the
+// ball-z field is carried by the SerializerMonitorStdv6 obtained via
+// Logger::setSenders()'s monitor_version = log_version - 1 mapping, not
+// by DispSenderLogger itself (which just delegates serialization to the
+// serializer it was constructed with).
+RegHolder vl7 = DispSenderLogger::factory().autoReg( &create< DispSenderLoggerV4 >, 7 );
 RegHolder vljson = DispSenderLogger::factory().autoReg( &create< DispSenderLoggerJSON >, -1 );
 
 }
