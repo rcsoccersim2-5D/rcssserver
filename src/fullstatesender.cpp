@@ -511,9 +511,9 @@ FullStateSenderPlayerV18::sendPlayer( const Player & p )
 //
 //  CLASS: FullStateSenderPlayerV20
 //
-//  DESC: 3D ball extension plan, Step 5 scaffolding. Adds ball z/vel_z
-//  to the full state protocol. See fullstatesender.h for notes on why
-//  this class is not yet registered with the factory (Step 7's job).
+//  DESC: 3D ball extension plan. Adds ball z/vel_z to the full state
+//  protocol. Registered with the factory at version 20 below
+//  (Step 7, "Protocol/Version Plumbing").
 //
 //===================================================================
 */
