@@ -1724,11 +1724,21 @@ Player::goalieCatch( double dir )
     PVector	rotated_pos = M_stadium.ball().pos() - this->pos();
     rotated_pos.rotate( -catch_angle );
 
-    if ( ! max_catchable.inArea( rotated_pos ) )
+    // 3D ball extension: add a reach-height gate to the existing 2D area
+    // test -- see plan_spec.md Step 4. When is2dMode()==true this clause is
+    // a provable no-op: Ball::posZ() is always 0.0 in that mode (never
+    // written by Ball::incZ(), which is itself gated off), so
+    // "0.0 > playerHeight()" is always false for any positive
+    // playerHeight(), and the guard below short-circuits the height check
+    // entirely so there is no dependence on a float edge case either way.
+    if ( ! max_catchable.inArea( rotated_pos )
+         || ( ! SP.is2dMode() && M_stadium.ball().posZ() > SP.playerHeight() ) )
     {
         M_state |= CATCH_FAULT;
         return;
     }
+
+
 
     bool success = false;
     if ( min_catchable.inArea( rotated_pos ) )
@@ -1771,13 +1781,22 @@ Player::goalieCatch( double dir )
         new_pos.normalize( mag );
         M_pos += new_pos;
         M_angle_body = new_pos.th();
-        M_vel = PVector();
+        M_vel = PVector(); // this is the goalie's OWN velocity, not the ball's
 
         M_stadium.ballCaught( *this );
+
+        // 3D ball extension: explicitly reset the BALL's velocity/z on a
+        // successful catch (separate from the goalie's own M_vel reset
+        // above, which never touched the ball) -- see plan_spec.md Step 4.
+        // Stadium::stopBall() is the sanctioned Stadium-side mutation
+        // added in Step 3 for exactly this kind of external ball reset,
+        // since Stadium::ball() only exposes a const reference.
+        M_stadium.stopBall();
     }
     else
     {
         M_state |= CATCH_FAULT;
+
 
         PVector vel = M_stadium.ball().vel();
         vel.rotate( -catch_angle );

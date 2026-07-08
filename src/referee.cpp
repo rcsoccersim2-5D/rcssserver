@@ -1120,6 +1120,9 @@ OffsideRef::playModeChange( PlayMode pm )
     }
 }
 
+// 3D ball extension: verified pure 2D (no Ball::posZ()/velZ() reads
+// anywhere in this function or elsewhere in OffsideRef) -- see
+// plan_spec.md Step 4. Intentionally left unchanged.
 void
 OffsideRef::setOffsideMark( const Player & kicker,
                             const double accel_r )

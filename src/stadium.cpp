@@ -942,8 +942,23 @@ Stadium::incMovableObjects()
                                            + ServerParam::instance().ballSize(),
                                            M_ball_catcher->angleBodyCommitted() );
         M_ball->moveTo( M_ball_catcher->pos() + rpos );
+
+        // 3D ball extension: glue the held ball at the goalie's reach
+        // height every cycle while caught, and keep its vertical velocity
+        // pinned at 0 (belt-and-suspenders alongside Ball::incZ()'s own
+        // gravity-skip-while-held check, since this block runs
+        // unconditionally regardless of incZ()'s internal state) -- see
+        // plan_spec.md Step 4. No-op effect when is2dMode()==true, since
+        // playerHeight() is only meaningful/used in 3D mode and z stays 0
+        // either way in that mode's existing behavior.
+        if ( ! ServerParam::instance().is2dMode() )
+        {
+            M_ball->setPosZ( ServerParam::instance().playerHeight() );
+        }
+        M_ball->setVelZ( 0.0 );
     }
 }
+
 
 
 void
@@ -1358,8 +1373,14 @@ Stadium::placeBall( const Side kick_off_side,
     M_ball->moveTo( pos,
                     PVector( 0.0, 0.0 ),
                     PVector( 0.0, 0.0 ) );
+    // 3D ball extension: centralize the z-reset for every restart call site
+    // that funnels through this method (kick-off, goal, out-of-bounds,
+    // free-kick, corner, etc. -- see plan_spec.md Step 4).
+    M_ball->setPosZ( 0.0 );
+    M_ball->setVelZ( 0.0 );
     M_kick_off_side = kick_off_side;
 }
+
 
 
 void
@@ -1388,7 +1409,12 @@ Stadium::moveBall( const PVector & pos,
     M_ball->moveTo( pos,
                     vel,
                     PVector( 0.0, 0.0 ) );
+    // 3D ball extension: same z-reset treatment as placeBall(), for
+    // consistency across debug/monitor moves -- see plan_spec.md Step 4.
+    M_ball->setPosZ( 0.0 );
+    M_ball->setVelZ( 0.0 );
 }
+
 
 
 // 3D ball extension: see plan_spec.md Step 3 (documented deviation).
