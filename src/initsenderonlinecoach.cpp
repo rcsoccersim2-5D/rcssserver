@@ -303,6 +303,12 @@ RegHolder voc16 = InitSenderOnlineCoach::factory().autoReg( &create< InitSenderO
 RegHolder voc17 = InitSenderOnlineCoach::factory().autoReg( &create< InitSenderOnlineCoachV8 >, 17 );
 RegHolder voc18 = InitSenderOnlineCoach::factory().autoReg( &create< InitSenderOnlineCoachV8 >, 18 );
 RegHolder voc19 = InitSenderOnlineCoach::factory().autoReg( &create< InitSenderOnlineCoachV8 >, 19 );
+// v20: 3D ball-extension protocol reuses the same init sender - new ServerParam
+// fields are already exposed generically via the verMap()-gated sendServerParam
+// loop, no new subclass needed. Missing this line left version-20 online-coach
+// clients unable to connect (OnlineCoach::setSenders() requires a match in
+// every factory it queries).
+RegHolder voc20 = InitSenderOnlineCoach::factory().autoReg( &create< InitSenderOnlineCoachV8 >, 20 );
 }
 
 }

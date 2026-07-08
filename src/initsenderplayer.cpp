@@ -284,6 +284,13 @@ RegHolder vp16 = InitSenderPlayer::factory().autoReg( &create< InitSenderPlayerV
 RegHolder vp17 = InitSenderPlayer::factory().autoReg( &create< InitSenderPlayerV8 >, 17 );
 RegHolder vp18 = InitSenderPlayer::factory().autoReg( &create< InitSenderPlayerV8 >, 18 );
 RegHolder vp19 = InitSenderPlayer::factory().autoReg( &create< InitSenderPlayerV8 >, 19 );
+// v20: 3D ball-extension protocol reuses the same version-8 init sender - new
+// ServerParam fields (player_height/goal_height/etc, Step 1) are already exposed
+// generically via InitSenderCommonV8's verMap()-gated sendServerParam loop, no
+// new InitSenderPlayer subclass is needed. Missing this line left version-20
+// clients unable to connect at all (Player::setSenders() requires a match in
+// every factory it queries, including InitSenderPlayer and FullStateSenderPlayer).
+RegHolder vp20 = InitSenderPlayer::factory().autoReg( &create< InitSenderPlayerV8 >, 20 );
 }
 
 }

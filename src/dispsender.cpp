@@ -1139,6 +1139,13 @@ RegHolder vm2 = DispSenderMonitor::factory().autoReg( &create< DispSenderMonitor
 RegHolder vm3 = DispSenderMonitor::factory().autoReg( &create< DispSenderMonitorV3 >, 3 );
 RegHolder vm4 = DispSenderMonitor::factory().autoReg( &create< DispSenderMonitorV3 >, 4 );
 RegHolder vm5 = DispSenderMonitor::factory().autoReg( &create< DispSenderMonitorV3 >, 5 );
+// v6: 3D ball-extension protocol (Step 7) added SerializerMonitorStdv6 (ball z in
+// (show ...)), but DispSenderMonitorV3 is version-agnostic - it delegates entirely
+// to whatever SerializerMonitor was negotiated for this connection, exactly like
+// DispSenderLoggerV4 already does for the REC_VERSION_7 game log below. Missing
+// this line left version-6 monitor clients unable to connect at all
+// (Monitor::setSenders() requires a match in every factory it queries).
+RegHolder vm6 = DispSenderMonitor::factory().autoReg( &create< DispSenderMonitorV3 >, 6 );
 RegHolder vmjson = DispSenderMonitor::factory().autoReg( &create< DispSenderMonitorJSON >, -1 );
 
 

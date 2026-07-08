@@ -986,6 +986,10 @@ RegHolder vp16 = AudioSenderPlayer::factory().autoReg( &create< AudioSenderPlaye
 RegHolder vp17 = AudioSenderPlayer::factory().autoReg( &create< AudioSenderPlayerv8 >, 17 );
 RegHolder vp18 = AudioSenderPlayer::factory().autoReg( &create< AudioSenderPlayerv8 >, 18 );
 RegHolder vp19 = AudioSenderPlayer::factory().autoReg( &create< AudioSenderPlayerv8 >, 19 );
+// v20: 3D ball-extension protocol reuses the same audio sender - say/hear format
+// unchanged by this feature. Missing this line left version-20 players unable to
+// connect at all (Player::setSenders() requires a match in every factory).
+RegHolder vp20 = AudioSenderPlayer::factory().autoReg( &create< AudioSenderPlayerv8 >, 20 );
 
 template< typename Sender >
 AudioSender::Ptr
@@ -1013,6 +1017,11 @@ RegHolder vc16 = AudioSenderCoach::factory().autoReg( &create< AudioSenderCoachv
 RegHolder vc17 = AudioSenderCoach::factory().autoReg( &create< AudioSenderCoachv7 >, 17 );
 RegHolder vc18 = AudioSenderCoach::factory().autoReg( &create< AudioSenderCoachv7 >, 18 );
 RegHolder vc19 = AudioSenderCoach::factory().autoReg( &create< AudioSenderCoachv7 >, 19 );
+// v20: 3D ball-extension protocol reuses the same audio sender for the offline
+// coach/trainer path too (say/hear format unchanged). Missing this line left
+// version-20 offline-coach clients unable to connect (Coach::setSenders()
+// requires a match in every factory it queries).
+RegHolder vc20 = AudioSenderCoach::factory().autoReg( &create< AudioSenderCoachv7 >, 20 );
 
 template< typename Sender >
 AudioSender::Ptr
@@ -1040,5 +1049,10 @@ RegHolder voc16 = AudioSenderOnlineCoach::factory().autoReg( &create< AudioSende
 RegHolder voc17 = AudioSenderOnlineCoach::factory().autoReg( &create< AudioSenderOnlineCoachv7 >, 17 );
 RegHolder voc18 = AudioSenderOnlineCoach::factory().autoReg( &create< AudioSenderOnlineCoachv7 >, 18 );
 RegHolder voc19 = AudioSenderOnlineCoach::factory().autoReg( &create< AudioSenderOnlineCoachv7 >, 19 );
+// v20: 3D ball-extension protocol reuses the same audio sender for the online
+// coach path (say/hear format unchanged). Missing this line left version-20
+// online-coach clients unable to connect (OnlineCoach::setSenders() requires a
+// match in every factory it queries).
+RegHolder voc20 = AudioSenderOnlineCoach::factory().autoReg( &create< AudioSenderOnlineCoachv7 >, 20 );
 }
 }

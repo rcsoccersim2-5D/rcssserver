@@ -66,6 +66,12 @@ RegHolder v16 = SerializerOnlineCoach::factory().autoReg( &SerializerOnlineCoach
 RegHolder v17 = SerializerOnlineCoach::factory().autoReg( &SerializerOnlineCoachStdv14::create, 17 );
 RegHolder v18 = SerializerOnlineCoach::factory().autoReg( &SerializerOnlineCoachStdv14::create, 18 );
 RegHolder v19 = SerializerOnlineCoach::factory().autoReg( &SerializerOnlineCoachStdv14::create, 19 );
+// v20: no SerializerOnlineCoachStdv20 subclass needed (Step 6) - SerializerOnlineCoach
+// delegates non-virtually to whatever concrete SerializerCoach subclass was negotiated
+// (SerializerCoachStdv20 for v20 clients), so reusing Stdv14 here is correct. Missing
+// this line left version-20 online-coach clients unable to connect at all
+// (OnlineCoach::setSenders() requires a match in every factory it queries).
+RegHolder v20 = SerializerOnlineCoach::factory().autoReg( &SerializerOnlineCoachStdv14::create, 20 );
 }
 
 }

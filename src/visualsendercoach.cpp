@@ -384,6 +384,13 @@ RegHolder vc16 = VisualSenderCoach::factory().autoReg( &create< VisualSenderCoac
 RegHolder vc17 = VisualSenderCoach::factory().autoReg( &create< VisualSenderCoachV13 >, 17 );
 RegHolder vc18 = VisualSenderCoach::factory().autoReg( &create< VisualSenderCoachV13 >, 18 );
 RegHolder vc19 = VisualSenderCoach::factory().autoReg( &create< VisualSenderCoachV13 >, 19 );
+// v20: 3D ball-extension protocol reuses the same coach visual sender - its
+// sendBall() (Step 6) already emits the ball's raw z via the new virtual
+// SerializerCoach overload, dispatched by whatever concrete serializer was
+// negotiated (SerializerCoachStdv20 for v20). Missing this line left version-20
+// coach clients unable to connect at all (setSenders() requires a match in
+// every factory it queries).
+RegHolder vc20 = VisualSenderCoach::factory().autoReg( &create< VisualSenderCoachV13 >, 20 );
 }
 
 }

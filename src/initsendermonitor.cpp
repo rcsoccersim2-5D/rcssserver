@@ -380,6 +380,12 @@ RegHolder v2 = InitSenderMonitor::factory().autoReg( &create< InitSenderMonitorV
 RegHolder v3 = InitSenderMonitor::factory().autoReg( &create< InitSenderMonitorV3 >, 3 );
 RegHolder v4 = InitSenderMonitor::factory().autoReg( &create< InitSenderMonitorV3 >, 4 );
 RegHolder v5 = InitSenderMonitor::factory().autoReg( &create< InitSenderMonitorV3 >, 5 );
+// v6: 3D ball-extension protocol reuses the same monitor init sender - its
+// content is unrelated to per-cycle ball z (that's DispSenderMonitor/
+// SerializerMonitorStdv6's job). Missing this line left version-6 monitor
+// clients unable to connect at all (Monitor::setSenders() requires a match in
+// every factory it queries).
+RegHolder v6 = InitSenderMonitor::factory().autoReg( &create< InitSenderMonitorV3 >, 6 );
 RegHolder vjson = InitSenderMonitor::factory().autoReg( &create< InitSenderMonitorJSON >, -1 );
 
 }

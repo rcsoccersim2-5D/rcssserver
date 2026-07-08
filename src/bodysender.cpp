@@ -439,6 +439,11 @@ RegHolder vp16 = BodySenderPlayer::factory().autoReg( &create< BodySenderPlayerV
 RegHolder vp17 = BodySenderPlayer::factory().autoReg( &create< BodySenderPlayerV14 >, 17 );
 RegHolder vp18 = BodySenderPlayer::factory().autoReg( &create< BodySenderPlayerV18 >, 18 );
 RegHolder vp19 = BodySenderPlayer::factory().autoReg( &create< BodySenderPlayerV18 >, 19 );
+// v20: 3D ball-extension protocol reuses the same version-18 body sender - the
+// sense_body format itself is unchanged by this feature. Missing this line left
+// version-20 clients unable to connect at all (Player::setSenders() requires a
+// match in every factory: Serializer/BodySender/VisualSender).
+RegHolder vp20 = BodySenderPlayer::factory().autoReg( &create< BodySenderPlayerV18 >, 20 );
 }
 
 }

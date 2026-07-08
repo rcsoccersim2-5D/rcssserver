@@ -224,6 +224,12 @@ RegHolder vc16 = InitSenderOfflineCoach::factory().autoReg( &create< InitSenderO
 RegHolder vc17 = InitSenderOfflineCoach::factory().autoReg( &create< InitSenderOfflineCoachV8 >, 17 );
 RegHolder vc18 = InitSenderOfflineCoach::factory().autoReg( &create< InitSenderOfflineCoachV8 >, 18 );
 RegHolder vc19 = InitSenderOfflineCoach::factory().autoReg( &create< InitSenderOfflineCoachV8 >, 19 );
+// v20: 3D ball-extension protocol reuses the same init sender for the offline
+// coach/trainer path too - new ServerParam fields are already exposed
+// generically via the verMap()-gated sendServerParam loop. Missing this line
+// left version-20 offline-coach clients unable to connect (Coach::setSenders()
+// requires a match in every factory it queries).
+RegHolder vc20 = InitSenderOfflineCoach::factory().autoReg( &create< InitSenderOfflineCoachV8 >, 20 );
 }
 
 }
