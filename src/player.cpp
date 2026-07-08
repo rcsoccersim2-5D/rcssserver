@@ -1303,9 +1303,10 @@ Player::change_focus( double moment_dist, double moment_dir )
 
 void
 Player::kick( double power,
-              double dir )
+              double dir,
+              double loft )
 {
-    kickImpl( power, dir, 0.0 );
+    kickImpl( power, dir, loft );
 }
 
 void
@@ -1450,13 +1451,46 @@ Player::kickImpl( double power,
     ++M_kick_count;
 }
 
+// 3D ball extension: instantly stops the ball. See plan_spec.md Step 3.
+void
+Player::stop_ball()
+{
+    if ( M_command_done )
+    {
+        return;
+    }
+
+    M_command_done = true;
+
+    // Only legal when the server is running in full 3D mode. Mirrors
+    // kickImpl()'s playmode illegal-command handling above (M_state |=
+    // KICK_FAULT; return;) as closely as possible -- there is no dedicated
+    // STOP_BALL_FAULT bit in types.h, and adding one is out of scope for
+    // this step (touching only pcombuilder.h/player.h/player.cpp/the
+    // grammar+lexer per plan_spec.md Step 3), so an illegal stop_ball is a
+    // silent no-op, same as e.g. sense_body()/score() which also carry no
+    // fault bit of their own.
+    if ( ServerParam::instance().is2dMode() )
+    {
+        return;
+    }
+
+    if ( ! ballKickable() )
+    {
+        return;
+    }
+
+    M_stadium.stopBall();
+}
+
 // 2011-05-14 akiyama
 // added for testing purpose
 void
 Player::long_kick( double power,
-                   double dir )
+                   double dir,
+                   double loft )
 {
-    longKickImpl( power, dir, 0.0 );
+    longKickImpl( power, dir, loft );
 }
 
 void

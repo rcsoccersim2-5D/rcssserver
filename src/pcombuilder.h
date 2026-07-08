@@ -83,8 +83,15 @@ public:
     virtual void turn( double moment ) = 0;
     virtual void turn_neck( double moment ) = 0;
     virtual void change_focus( double moment_dist, double moment_dir ) = 0;
-    virtual void kick( double power, double dir ) = 0;
-    virtual void long_kick( double power, double dir ) = 0;
+    // 3D ball extension: loft is an OPTIONAL third argument (defaults to
+    // 0.0, matching legacy 2-float grammar/behavior). See plan_spec.md
+    // Step 3. Only meaningful when ServerParam::is2dMode() == false.
+    virtual void kick( double power, double dir, double loft = 0.0 ) = 0;
+    virtual void long_kick( double power, double dir, double loft = 0.0 ) = 0;
+    // 3D ball extension: instantly stops the ball (vel -> 0, pos_z -> 0,
+    // vel_z -> 0) when kickable. Only legal when !is2dMode(). See
+    // plan_spec.md Step 3.
+    virtual void stop_ball() = 0;
     virtual void goalieCatch( double dir ) = 0;
     virtual void say( std::string message ) = 0;
     virtual void sense_body() = 0;

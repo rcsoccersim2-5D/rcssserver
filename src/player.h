@@ -196,8 +196,9 @@ private:
     double M_long_kick_dir;
     double M_long_kick_loft; //!< 3D ball extension: loft angle in RADIANS (already
                              //!< bounded/converted by longKickImpl(), same convention
-                             //!< as M_long_kick_dir), consumed by doLongKick(); always
-                             //!< 0.0 via the current long_kick(power,dir) override.
+                             //!< as M_long_kick_dir), consumed by doLongKick(); now
+                             //!< threaded from long_kick(power,dir,loft) (Step 3).
+
 
     double M_wide_view_angle_noise_term;
     double M_normal_view_angle_noise_term;
@@ -497,19 +498,25 @@ private:
     void turn( double moment ) override;
     void turn_neck( double moment ) override;
     void change_focus( double moment_dist, double moment_dir) override;
-    void kick( double power, double dir ) override;
-    void long_kick( double power, double dir ) override;
+    // 3D ball extension: loft is now threaded all the way through from the
+    // pcom::Builder interface (pcombuilder.h) / grammar (Step 3). Default
+    // arg preserves legacy 2-arg call sites (loft=0.0, byte-identical to
+    // pre-Step-3 behavior since kickImpl()/longKickImpl() only branch on
+    // loft when !is2dMode() && loft != 0.0). See plan_spec.md Step 2/3.
+    void kick( double power, double dir, double loft = 0.0 ) override;
+    void long_kick( double power, double dir, double loft = 0.0 ) override;
 
     // 3D ball extension: the loft-capable implementations behind kick()/
     // long_kick() above. Kept as separate, non-virtual private helpers
-    // (rather than widening the public overrides themselves) because
-    // pcom::Builder::kick()/long_kick() (pcombuilder.h) are still 2-arg pure
-    // virtuals until Step 3 adds the grammar/loft plumbing -- kick()/
-    // long_kick() simply forward to these with loft=0.0, which takes the
-    // is2dMode()-equivalent early-return path below and reproduces today's
-    // exact 2D behavior. See plan_spec.md Step 2.
+    // purely to isolate the loft-specific physics math from the thin
+    // pcom::Builder-facing overrides. See plan_spec.md Step 2.
     void kickImpl( double power, double dir, double loft );
     void longKickImpl( double power, double dir, double loft );
+
+    // 3D ball extension: instantly stops the ball. Only legal when
+    // !is2dMode() and the ball is currently kickable. See plan_spec.md
+    // Step 3.
+    void stop_ball() override;
 
     void goalieCatch( double dir ) override;
     void say( std::string message ) override;

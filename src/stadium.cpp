@@ -1391,6 +1391,18 @@ Stadium::moveBall( const PVector & pos,
 }
 
 
+// 3D ball extension: see plan_spec.md Step 3 (documented deviation).
+void
+Stadium::stopBall()
+{
+    M_ball->moveTo( M_ball->pos(),
+                    PVector( 0.0, 0.0 ),
+                    PVector( 0.0, 0.0 ) );
+    M_ball->setPosZ( 0.0 );
+    M_ball->setVelZ( 0.0 );
+}
+
+
 bool
 Stadium::movePlayer( const Side side,
                      const int unum,
