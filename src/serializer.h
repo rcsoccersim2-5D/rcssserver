@@ -592,6 +592,20 @@ public:
                           const double & ) const
       { }
 
+    // NOTE (3D ball extension, Step 5): the 4-arg serializeFSBall() above is
+    // kept UNCHANGED so existing versions (v1/v5/v8/...) keep their exact
+    // byte layout. This new 3D overload is purely additive; it is used only
+    // by the new-protocol subclass(es) formalized/registered in Step 7.
+    virtual
+    void serializeFSBall3D( std::ostream &,
+                            const double & /* x */,
+                            const double & /* y */,
+                            const double & /* z */,
+                            const double & /* vel_x */,
+                            const double & /* vel_y */,
+                            const double & /* vel_z */ ) const
+      { }
+
     virtual
     void serializeFSPlayerBegin( std::ostream &,
                                  const char,

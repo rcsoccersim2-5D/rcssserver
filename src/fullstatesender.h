@@ -321,6 +321,37 @@ protected:
 };
 
 
+/*!
+//===================================================================
+//
+//  CLASS: FullStateSenderPlayerV20
+//
+//  DESC: 3D ball extension plan, Step 5 scaffolding. Adds ball z/vel_z
+//  to the full state protocol via the new serializeFSBall3D() virtual
+//  (serializer.h). This class is deliberately NOT registered with
+//  FullStateSenderPlayer::factory() yet -- picking the real next-free
+//  protocol version number and formal autoReg() registration is
+//  Step 7's job ("Protocol/Version Plumbing").
+//
+//===================================================================
+*/
+
+class FullStateSenderPlayerV20
+    : public FullStateSenderPlayerV18
+{
+public:
+    FullStateSenderPlayerV20( const Params & );
+
+    virtual
+    ~FullStateSenderPlayerV20() override;
+
+protected:
+
+    virtual
+    void sendBall() override;
+};
+
+
 }
 
 #endif

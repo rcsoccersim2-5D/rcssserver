@@ -509,6 +509,41 @@ FullStateSenderPlayerV18::sendPlayer( const Player & p )
 /*!
 //===================================================================
 //
+//  CLASS: FullStateSenderPlayerV20
+//
+//  DESC: 3D ball extension plan, Step 5 scaffolding. Adds ball z/vel_z
+//  to the full state protocol. See fullstatesender.h for notes on why
+//  this class is not yet registered with the factory (Step 7's job).
+//
+//===================================================================
+*/
+
+FullStateSenderPlayerV20::FullStateSenderPlayerV20( const Params & params )
+    : FullStateSenderPlayerV18( params )
+{
+
+}
+
+FullStateSenderPlayerV20::~FullStateSenderPlayerV20()
+{
+
+}
+
+void
+FullStateSenderPlayerV20::sendBall()
+{
+    serializer().serializeFSBall3D( transport(),
+                                    stadium().ball().pos().x,
+                                    stadium().ball().pos().y,
+                                    stadium().ball().posZ(),
+                                    stadium().ball().vel().x,
+                                    stadium().ball().vel().y,
+                                    stadium().ball().velZ() );
+}
+
+/*!
+//===================================================================
+//
 //  Register senders for different versions
 //
 //===================================================================
@@ -542,6 +577,10 @@ RegHolder vp16 = FullStateSenderPlayer::factory().autoReg( &create< FullStateSen
 RegHolder vp17 = FullStateSenderPlayer::factory().autoReg( &create< FullStateSenderPlayerV13 >, 17 );
 RegHolder vp18 = FullStateSenderPlayer::factory().autoReg( &create< FullStateSenderPlayerV18 >, 18 );
 RegHolder vp19 = FullStateSenderPlayer::factory().autoReg( &create< FullStateSenderPlayerV18 >, 19 );
+// NOTE (3D ball extension plan, Step 5): FullStateSenderPlayerV20 (above)
+// is intentionally NOT registered here yet. Step 7 ("Protocol/Version
+// Plumbing") will confirm the real next-free version number and add its
+// autoReg( &create< FullStateSenderPlayerV20 >, N ) line at that time.
 }
 
 }
