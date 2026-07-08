@@ -664,7 +664,233 @@ MPObject::moveToCollisionPos()
 Ball::Ball( Stadium & stadium )
     : MPObject( stadium,
                 BALL_NAME, BALL_NAME_SHORT,
-                O_TYPE_BALL_NAME, O_TYPE_BALL_NAME_SHORT )
+                O_TYPE_BALL_NAME, O_TYPE_BALL_NAME_SHORT ),
+      M_pos_z( 0.0 ),
+      M_vel_z( 0.0 ),
+      M_accel_z( 0.0 )
 {
 
+}
+
+
+double
+Ball::bounceSettleThreshold() const
+{
+    const ServerParam & SP = ServerParam::instance();
+
+    if ( SP.ballBounceRestitution() >= 1.0 || SP.gravity() <= 0.0 )
+    {
+        return SP.bounceStopSpeed();
+    }
+
+    // analytic fixed point of the bounce recurrence -- a bounce candidate at
+    // or below this speed would only ever re-bounce at the same (or a
+    // smaller) speed forever, so treat it as settled instead of chasing an
+    // asymptote that never quite reaches bounce_stop_speed for some
+    // gravity/restitution combinations. Ported from
+    // 3d-kick-lab/physics.js's _bounceSettleThreshold().
+    const double vz_star = ( SP.ballBounceRestitution() * SP.gravity() )
+        / ( 1.0 + SP.ballBounceRestitution() );
+
+    return std::max( SP.bounceStopSpeed(), vz_star * 1.0001 );
+}
+
+void
+Ball::applyBounceFriction( double vz_impact,
+                            double post_bounce_vz )
+{
+    const ServerParam & SP = ServerParam::instance();
+
+    const double normal_impulse = std::fabs( vz_impact ) - std::fabs( post_bounce_vz );
+    if ( normal_impulse <= 0.0 || SP.ballBounceFriction() <= 0.0 )
+    {
+        return;
+    }
+
+    const double speed_xy = M_vel.r();
+    if ( speed_xy <= 1.0e-9 )
+    {
+        return;
+    }
+
+    // Coulomb-style cap: the tangential (x,y) speed loss can never exceed
+    // mu * normal_impulse, and can never reverse the ball's horizontal
+    // motion. Ported from 3d-kick-lab/physics.js's _applyBounceFriction().
+    const double max_loss = SP.ballBounceFriction() * normal_impulse;
+    const double loss = std::min( max_loss, speed_xy );
+    const double scale = ( speed_xy - loss ) / speed_xy;
+
+    M_vel.x *= scale;
+    M_vel.y *= scale;
+}
+
+void
+Ball::checkPostAndCrossbar3D()
+{
+    const ServerParam & SP = ServerParam::instance();
+
+    // Reuse the existing 2D post-finder purely to obtain the nearest post's
+    // (x,y)/radius; this is a side-effect-free free-function call (CArea
+    // returned by value) and does not touch MPObject::_inc()'s shared
+    // collision-loop state.
+    const CArea post = nearestPost( pos(), M_size );
+
+    const double half_goal_width = SP.goalWidth() * 0.5;
+    const bool within_goal_mouth_y = std::fabs( pos().y ) <= half_goal_width + post.radius();
+    const bool at_goal_line_x = std::fabs( pos().x ) >= ServerParam::PITCH_LENGTH * 0.5 - post.radius();
+
+    if ( ! within_goal_mouth_y || ! at_goal_line_x )
+    {
+        // ball is nowhere near either goal's (x,y) mouth -- nothing to do
+        return;
+    }
+
+    // Crossbar: reflect vel_z (restitution-style, same as a ground bounce)
+    // if the ball is at/above goal height and still rising while inside the
+    // goal-mouth (x,y) span, instead of letting it fly through unimpeded.
+    if ( M_pos_z >= SP.goalHeight() && M_vel_z > 0.0 )
+    {
+        const double vz_impact = M_vel_z;
+        const double candidate = -vz_impact * SP.ballBounceRestitution();
+        applyBounceFriction( vz_impact, candidate );
+        M_vel_z = candidate;
+        M_pos_z = SP.goalHeight();
+    }
+
+    // Post-at-height: below goal height and inside the post's (x,y) circle
+    // -- treat like a vertical wall and reflect vel_z the same
+    // restitution-style way the (unmodified) 2D post bounce in
+    // MPObject::_inc() reflects vel.x/vel.y.
+    if ( M_pos_z <= SP.goalHeight()
+         && ( pos() - post.center() ).r() < post.radius()
+         && M_vel_z != 0.0 )
+    {
+        const double vz_impact = M_vel_z;
+        const double candidate = -vz_impact * SP.ballBounceRestitution();
+        applyBounceFriction( vz_impact, candidate );
+        M_vel_z = candidate;
+    }
+}
+
+void
+Ball::incZ()
+{
+    const ServerParam & SP = ServerParam::instance();
+
+    const bool held = ( M_stadium.ballCatcher() != static_cast< const Player * >( 0 ) );
+
+    // A ball resting flat on the ground must not have gravity re-applied to
+    // it (gravity alone is typically bigger than bounce_stop_speed, so a
+    // resting ball would "fall" every cycle, bounce back up, and never
+    // settle -- see 3d-kick-lab/physics.js step()'s "resting" guard). A ball
+    // currently held by a goalie must not silently accumulate vel_z either,
+    // or releasing it would cause an unphysical velocity spike.
+    const bool resting = ( M_pos_z <= 0.0 && M_vel_z == 0.0 );
+
+    // Consume any loft-kick vertical impulse pushed this cycle via
+    // Player::kickImpl()/Stadium::kickTaken() -- mirrors how MPObject::_inc()
+    // consumes M_accel into M_vel, just for the z axis.
+    M_vel_z += M_accel_z;
+    M_accel_z = 0.0;
+
+    if ( held )
+    {
+        return;
+    }
+
+    if ( ! resting )
+    {
+        M_vel_z -= SP.gravity();
+    }
+
+    const double z0 = M_pos_z;
+    const double new_z = z0 + M_vel_z;
+    bool bounced = false;
+
+    if ( ! resting )
+    {
+        if ( SP.preciseBounceTiming() && z0 > 0.0 && new_z <= 0.0 )
+        {
+            // Exact ground-crossing fraction within this cycle (linear
+            // interpolation -- vel_z is constant across one cycle), then
+            // continue moving for the remaining fraction with the reflected
+            // velocity, instead of clamping straight to z=0 and discarding
+            // the rest of the cycle's fall. Ported from
+            // 3d-kick-lab/physics.js's precise_bounce_timing branch.
+            const double frac = z0 / ( z0 - new_z );
+            const double vz_impact = M_vel_z;
+            const double candidate = -vz_impact * SP.ballBounceRestitution();
+
+            if ( std::fabs( candidate ) < bounceSettleThreshold() )
+            {
+                applyBounceFriction( vz_impact, 0.0 );
+                M_vel_z = 0.0;
+                M_pos_z = 0.0;
+            }
+            else
+            {
+                const double remaining = 1.0 - frac;
+                applyBounceFriction( vz_impact, candidate );
+                M_vel_z = candidate;
+                M_pos_z = std::max( 0.0,
+                                    candidate * remaining
+                                    - 0.5 * SP.gravity() * remaining * remaining );
+            }
+            bounced = true;
+        }
+        else
+        {
+            M_pos_z = new_z;
+        }
+    }
+
+    // Legacy/clamp-to-zero bounce path (used when precise_bounce_timing is
+    // false, or as a catch-all for any case the precise branch above didn't
+    // already resolve this cycle).
+    if ( ! bounced && M_pos_z <= 0.0 )
+    {
+        M_pos_z = 0.0;
+
+        // Check the PREDICTED post-bounce velocity against
+        // bounceSettleThreshold(), not the incoming fall velocity -- the
+        // incoming velocity converges to a stable, non-decaying value
+        // whenever gravity > bounce_stop_speed and never actually settles.
+        const double vz_impact = M_vel_z;
+        const double candidate = -vz_impact * SP.ballBounceRestitution();
+
+        if ( std::fabs( candidate ) < bounceSettleThreshold() )
+        {
+            applyBounceFriction( vz_impact, 0.0 );
+            M_vel_z = 0.0;
+        }
+        else
+        {
+            applyBounceFriction( vz_impact, candidate );
+            M_vel_z = candidate;
+        }
+    }
+
+    checkPostAndCrossbar3D();
+
+    // Ground/air xy-decay split (ball_decay while grounded, air_decay while
+    // airborne) -- NOTE this is layered ON TOP OF the unconditional
+    // M_vel *= M_decay already applied by the (unmodified) shared
+    // MPObject::_inc() this same cycle, since that decay is not gated by z;
+    // see plan_spec.md Step 2 verification notes for this known 3D-mode-only
+    // double-decay caveat (inert/no effect in 2d_mode).
+    const double decay = ( M_pos_z > 1.0e-6 ? SP.airDecay() : M_decay );
+    M_vel.x *= decay;
+    M_vel.y *= decay;
+
+    // Ground roll-stop: once a resting ball's horizontal speed decays below
+    // roll_stop_speed, freeze it fully instead of simulating an
+    // effectively-motionless ball forever.
+    if ( M_pos_z <= 0.0 && M_vel_z == 0.0 )
+    {
+        const double speed_xy = M_vel.r();
+        if ( speed_xy > 0.0 && speed_xy < SP.rollStopSpeed() )
+        {
+            M_vel.assign( 0.0, 0.0 );
+        }
+    }
 }

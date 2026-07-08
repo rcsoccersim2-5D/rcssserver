@@ -416,7 +416,8 @@ public:
                          const int state );
 
     void kickTaken( const Player & kicker,
-                    const PVector & accel );
+                    const PVector & accel,
+                    double accel_z = 0.0 );
     void failedKickTaken( const Player & kicker );
     void tackleTaken( const Player & tackler,
                       const PVector & accel,

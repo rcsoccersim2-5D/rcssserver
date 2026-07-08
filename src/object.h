@@ -634,6 +634,17 @@ class Ball
     : public MPObject {
 private:
 
+    //! ball's height above the pitch (0 = resting on the ground). Ball-only
+    //! field -- PVector/MPObject stay 2D, per the 3D extension's confirmed
+    //! architecture (see plan_spec.md Step 2).
+    double M_pos_z;
+    //! ball's vertical velocity, same per-cycle integration convention as M_vel
+    //! (pos_z += vel_z; no dt multiplication).
+    double M_vel_z;
+    //! vertical acceleration accumulated by a loft kick this cycle, consumed
+    //! (and reset to 0) by incZ() -- mirrors MPObject::push()/M_accel's
+    //! push-then-consume pattern, just for the z axis.
+    double M_accel_z;
 
 public:
 
@@ -663,6 +674,65 @@ public:
       {
           return M_max_speed;
       }
+
+    double posZ() const
+      {
+          return M_pos_z;
+      }
+
+    double velZ() const
+      {
+          return M_vel_z;
+      }
+
+    void setPosZ( double z )
+      {
+          M_pos_z = z;
+      }
+
+    void setVelZ( double vz )
+      {
+          M_vel_z = vz;
+      }
+
+    //! Accumulates a vertical kick impulse to be applied by incZ() this
+    //! cycle. Ball-only counterpart of MPObject::push() (which only
+    //! accumulates into the 2D M_accel).
+    void pushZ( double az )
+      {
+          M_accel_z += az;
+      }
+
+    //! Ball-only z/gravity/bounce/loft-decay integration. Called by
+    //! Stadium::incMovableObjects() immediately after the existing, UNCHANGED
+    //! MPObject::_inc() loop finishes for every movable object, and only
+    //! when !ServerParam::instance().is2dMode(). Never touches PVector or
+    //! MPObject::_inc()'s shared 2D integration/post-collision code -- see
+    //! plan_spec.md Step 2 for the full rationale.
+    void incZ();
+
+private:
+
+    //! Analytic fixed-point bounce-settle speed (ported from
+    //! 3d-kick-lab/physics.js's _bounceSettleThreshold()) -- guards against a
+    //! ball bouncing forever at a tiny, non-decaying amplitude for
+    //! gravity/restitution combinations where the raw bounce_stop_speed
+    //! check alone never triggers.
+    double bounceSettleThreshold() const;
+
+    //! Couples the vertical impulse absorbed at a ground/post/crossbar
+    //! bounce to a one-time Coulomb-style horizontal (x,y) speed loss.
+    //! Ported from 3d-kick-lab/physics.js's _applyBounceFriction().
+    void applyBounceFriction( double vz_impact,
+                              double post_bounce_vz );
+
+    //! NEW, additive, Ball-only 3D goalpost + crossbar collision test,
+    //! called from incZ(). May reuse the existing free functions
+    //! nearestPost()/intersect() (they operate on PVector/CArea only, not
+    //! MPObject members, so calling them here is safe) but never modifies
+    //! the shared 2D post-collision loop inside MPObject::_inc().
+    void checkPostAndCrossbar3D();
 };
+
 
 #endif // _H_OBJECT

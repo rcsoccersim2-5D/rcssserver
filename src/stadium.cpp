@@ -922,6 +922,16 @@ Stadium::incMovableObjects()
         }
     }
 
+    // 3D ball extension: Ball-only z/gravity/bounce integration, run right
+    // after the existing (unmodified) 2D _inc() loop above and before
+    // collisions()/the held-ball glue block below. No-op when 2d_mode==true
+    // (the default), so this is provably inert unless explicitly enabled --
+    // see plan_spec.md Step 2.
+    if ( ! ServerParam::instance().is2dMode() )
+    {
+        M_ball->incZ();
+    }
+
     collisions();
 
     // move_caughat_ball() [2000.07.21: I.Noda]
@@ -1861,11 +1871,20 @@ Stadium::setPlayerState( const Side side,
 
 void
 Stadium::kickTaken( const Player & kicker,
-                    const PVector & accel )
+                    const PVector & accel,
+                    double accel_z )
 {
     M_ball_catcher = static_cast< const Player * >( 0 );
 
     M_ball->push( accel );
+
+    // 3D ball extension: vertical (loft-kick) impulse, consumed next by
+    // Ball::incZ() -- only ever non-zero when Player::kickImpl() computed it
+    // under !is2dMode(), so this is inert (accel_z always 0.0) in 2d_mode.
+    if ( accel_z != 0.0 )
+    {
+        M_ball->pushZ( accel_z );
+    }
 
     const double accel_r = accel.r();
     for_each( M_referees.begin(), M_referees.end(),

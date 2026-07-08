@@ -1305,6 +1305,14 @@ void
 Player::kick( double power,
               double dir )
 {
+    kickImpl( power, dir, 0.0 );
+}
+
+void
+Player::kickImpl( double power,
+                  double dir,
+                  double loft )
+{
     if ( M_command_done )
     {
         return;
@@ -1315,6 +1323,7 @@ Player::kick( double power,
 
     power = NormalizeKickPower( power );
     dir = NormalizeMoment( dir );
+    loft = Deg2Rad( rcss::bound( 0.0, loft, 90.0 ) );
 
     M_state |= KICK;
 
@@ -1359,6 +1368,30 @@ Player::kick( double power,
         = power
         * M_player_type->kickPowerRate()
         * (1.0 - 0.25*dir_diff/M_PI - 0.25*dist_ball/M_player_type->kickableMargin());
+
+    // 3D ball extension: loft kick. When is2dMode()==true or loft==0.0 (the
+    // default), this branch never runs and accel below is computed from the
+    // unmodified eff_power exactly as before -- byte-identical to today's
+    // 2D formula. Ported from 3d-kick-lab/physics.js's kick().
+    double accel_z = 0.0;
+    if ( ! ServerParam::instance().is2dMode() && loft != 0.0 )
+    {
+        const ServerParam & SP = ServerParam::instance();
+
+        const double height_frac = M_stadium.ball().posZ() / SP.playerHeight();
+        eff_power -= SP.heightPowerCost() * height_frac;
+        eff_power = std::max( 0.0, eff_power );
+
+        // loft "costs" power -- kicking upward reduces the push available
+        // for the horizontal/vertical split below.
+        const double eff_power_total
+            = eff_power * ( 1.0 - SP.loftPowerCost() * ( loft / ( M_PI * 0.5 ) ) );
+
+        const double horiz = eff_power_total * std::cos( loft );
+        accel_z = eff_power_total * std::sin( loft );
+
+        eff_power = horiz;
+    }
 
     PVector accel = PVector::fromPolar( eff_power,
                                         dir + angleBodyCommitted() );
@@ -1411,7 +1444,8 @@ Player::kick( double power,
     //                       << " " << max_rand
     //                       << std::endl;
 
-    M_stadium.kickTaken( *this, accel );
+    M_stadium.kickTaken( *this, accel, accel_z );
+
 
     ++M_kick_count;
 }
@@ -1421,6 +1455,14 @@ Player::kick( double power,
 void
 Player::long_kick( double power,
                    double dir )
+{
+    longKickImpl( power, dir, 0.0 );
+}
+
+void
+Player::longKickImpl( double power,
+                      double dir,
+                      double loft )
 {
     return;
 
@@ -1434,6 +1476,7 @@ Player::long_kick( double power,
 
     M_long_kick_power = NormalizeKickPower( power );
     M_long_kick_dir = NormalizeMoment( dir );
+    M_long_kick_loft = Deg2Rad( rcss::bound( 0.0, loft, 90.0 ) );
 
     M_state |= KICK;
 }
@@ -1492,6 +1535,29 @@ Player::doLongKick()
         * ( M_player_type->kickPowerRate() * ServerParam::instance().longKickPowerFactor() )
         * (1.0 - 0.25*dir_diff/M_PI - 0.25*dist_ball/M_player_type->kickableMargin());
 
+    // 3D ball extension: identical treatment to Player::kickImpl() above --
+    // inert (accel_z stays 0.0, eff_power/accel byte-identical to the
+    // pre-existing formula) whenever is2dMode()==true or M_long_kick_loft==0.0
+    // (the default, since long_kick()'s public override always calls
+    // longKickImpl(power, dir, 0.0)).
+    double accel_z = 0.0;
+    if ( ! ServerParam::instance().is2dMode() && M_long_kick_loft != 0.0 )
+    {
+        const ServerParam & SP = ServerParam::instance();
+
+        const double height_frac = M_stadium.ball().posZ() / SP.playerHeight();
+        eff_power -= SP.heightPowerCost() * height_frac;
+        eff_power = std::max( 0.0, eff_power );
+
+        const double eff_power_total
+            = eff_power * ( 1.0 - SP.loftPowerCost() * ( M_long_kick_loft / ( M_PI * 0.5 ) ) );
+
+        const double horiz = eff_power_total * std::cos( M_long_kick_loft );
+        accel_z = eff_power_total * std::sin( M_long_kick_loft );
+
+        eff_power = horiz;
+    }
+
     PVector accel = PVector::fromPolar( eff_power,
                                         M_long_kick_dir + angleBodyCommitted() );
 
@@ -1514,7 +1580,7 @@ Player::doLongKick()
                                              drand( -M_PI, M_PI ) );
     accel += kick_noise;
 
-    M_stadium.kickTaken( *this, accel );
+    M_stadium.kickTaken( *this, accel, accel_z );
 
     ++M_kick_count;
 }
