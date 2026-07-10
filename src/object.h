@@ -720,11 +720,17 @@ private:
     //! check alone never triggers.
     double bounceSettleThreshold() const;
 
-    //! Couples the vertical impulse absorbed at a ground/post/crossbar
-    //! bounce to a one-time Coulomb-style horizontal (x,y) speed loss.
-    //! Ported from 3d-kick-lab/physics.js's _applyBounceFriction().
-    void applyBounceFriction( double vz_impact,
-                              double post_bounce_vz );
+    //! Scales the ball's ENTIRE velocity vector (vx, vy, and the
+    //! just-reflected vz) by the single ball_bounce_restitution
+    //! coefficient, once per genuine ground/post/crossbar bounce event --
+    //! a uniform "whole-speed" kinetic-energy loss rather than treating the
+    //! vertical and horizontal components separately. Ported from
+    //! 3d-kick-lab/physics.js's _applyBounceEnergyLoss(). Call this ONCE per
+    //! ground-touch, right after vel_z has been reflected (or zeroed on
+    //! settle) -- this method only scales vel.x/vel.y; the caller is
+    //! responsible for reflecting/scaling vel_z itself.
+    void applyBounceEnergyLoss();
+
 
     //! NEW, additive, Ball-only 3D goalpost + crossbar collision test,
     //! called from incZ(). May reuse the existing free functions

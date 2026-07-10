@@ -386,18 +386,16 @@ constexpr double LAND_FOCUS_DIST_NOISE_RATE = 0.00125;
 
 // 20.0.0 -- 3D ball extension (Step 1: inert until consumed)
 constexpr bool TWO_D_MODE = true;
-constexpr double PLAYER_HEIGHT = 2.0;
+constexpr double PLAYER_HEIGHT = 2.0; // also the max reach height for kickability/heading (merged from the former separate player_reach_height)
 constexpr double GOAL_HEIGHT = 2.0;
-constexpr double GRAVITY = 0.15; // per-cycle value (NOT real-world 9.8) -- see 3d-kick-lab/physics.js DEFAULT_PARAMS
-constexpr double BALL_BOUNCE_RESTITUTION = 0.5;
-constexpr double BALL_BOUNCE_FRICTION = 0.5;
-constexpr double LOFT_POWER_COST = 0.4;
-constexpr double AIR_DECAY = 0.999;
+constexpr double GRAVITY = 0.1; // per-cycle value (NOT real-world 9.8) -- see 3d-kick-lab/physics.js DEFAULT_PARAMS
+constexpr double BALL_BOUNCE_RESTITUTION = 0.5; // scales the ball's ENTIRE velocity vector (vx,vy,vz) on a ground bounce
 constexpr double BOUNCE_STOP_SPEED = 0.05;
 constexpr double ROLL_STOP_SPEED = 0.05;
 constexpr double HEIGHT_POWER_COST = 0.25;
 constexpr bool PRECISE_BOUNCE_TIMING = true;
 }
+
 
 // XXX
 const double ServerParam::LONG_KICK_POWER_FACTOR = 2.0;
@@ -974,17 +972,15 @@ ServerParam::addParams()
 
     // v20 -- 3D ball extension (Step 1: inert until consumed by later steps)
     addParam( "2d_mode", M_2d_mode, "Master gate for the 3D ball extension; true reproduces today's exact 2D behavior", 20 );
-    addParam( "player_height", M_player_height, "Player height, used for goalie catch / header gating", 20 );
+    addParam( "player_height", M_player_height, "Player height, used for goalie catch / header gating, and the max ball reach height for kickability", 20 );
     addParam( "goal_height", M_goal_height, "Goal height, used for 3D crossbar collision", 20 );
     addParam( "gravity", M_gravity, "Per-cycle gravity acceleration applied to ball vel_z (not real-world 9.8)", 20 );
-    addParam( "ball_bounce_restitution", M_ball_bounce_restitution, "Ball vertical speed retained after a ground bounce", 20 );
-    addParam( "ball_bounce_friction", M_ball_bounce_friction, "Horizontal speed lost per unit of vertical impulse absorbed at bounce", 20 );
-    addParam( "loft_power_cost", M_loft_power_cost, "Kick power penalty applied as loft angle increases", 20 );
-    addParam( "air_decay", M_air_decay, "Ball horizontal (x,y) decay while airborne", 20 );
+    addParam( "ball_bounce_restitution", M_ball_bounce_restitution, "Fraction of the ball's entire velocity vector (vx,vy,vz) retained after a ground bounce", 20 );
     addParam( "bounce_stop_speed", M_bounce_stop_speed, "Predicted post-bounce speed threshold below which the ball settles", 20 );
     addParam( "roll_stop_speed", M_roll_stop_speed, "Rolling (on-ground) speed threshold below which the ball settles", 20 );
-    addParam( "height_power_cost", M_height_power_cost, "Kick power penalty as ball height approaches player_reach_height", 20 );
+    addParam( "height_power_cost", M_height_power_cost, "Kick power penalty as ball height approaches player_height", 20 );
     addParam( "precise_bounce_timing", M_precise_bounce_timing, "Analytical time-of-impact ground bounce vs. legacy clamp-to-zero", 20 );
+
 
     // XXX
     // addParam( "random_seed", M_random_seed, "", 999 );
@@ -1514,13 +1510,11 @@ ServerParam::setDefaults()
     M_goal_height = GOAL_HEIGHT;
     M_gravity = GRAVITY;
     M_ball_bounce_restitution = BALL_BOUNCE_RESTITUTION;
-    M_ball_bounce_friction = BALL_BOUNCE_FRICTION;
-    M_loft_power_cost = LOFT_POWER_COST;
-    M_air_decay = AIR_DECAY;
     M_bounce_stop_speed = BOUNCE_STOP_SPEED;
     M_roll_stop_speed = ROLL_STOP_SPEED;
     M_height_power_cost = HEIGHT_POWER_COST;
     M_precise_bounce_timing = PRECISE_BOUNCE_TIMING;
+
 
 //     std::string module_dir = S_MODULE_DIR;
 //     for ( std::string::size_type pos = module_dir.find( "//" );

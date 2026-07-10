@@ -696,33 +696,22 @@ Ball::bounceSettleThreshold() const
 }
 
 void
-Ball::applyBounceFriction( double vz_impact,
-                            double post_bounce_vz )
+Ball::applyBounceEnergyLoss()
 {
     const ServerParam & SP = ServerParam::instance();
 
-    const double normal_impulse = std::fabs( vz_impact ) - std::fabs( post_bounce_vz );
-    if ( normal_impulse <= 0.0 || SP.ballBounceFriction() <= 0.0 )
-    {
-        return;
-    }
-
-    const double speed_xy = M_vel.r();
-    if ( speed_xy <= 1.0e-9 )
-    {
-        return;
-    }
-
-    // Coulomb-style cap: the tangential (x,y) speed loss can never exceed
-    // mu * normal_impulse, and can never reverse the ball's horizontal
-    // motion. Ported from 3d-kick-lab/physics.js's _applyBounceFriction().
-    const double max_loss = SP.ballBounceFriction() * normal_impulse;
-    const double loss = std::min( max_loss, speed_xy );
-    const double scale = ( speed_xy - loss ) / speed_xy;
-
-    M_vel.x *= scale;
-    M_vel.y *= scale;
+    // Uniform "whole-speed" energy loss: scale the horizontal components by
+    // the SAME coefficient already used (by the caller) to reflect vel_z at
+    // this bounce, so a single number represents the fraction of the ball's
+    // total kinetic energy retained across ALL three axes. Ported from
+    // 3d-kick-lab/physics.js's _applyBounceEnergyLoss() -- replaces the
+    // former two-parameter model (ball_bounce_restitution for vel_z only,
+    // plus a separate ball_bounce_friction Coulomb-style coupling for
+    // vel.x/vel.y, now merged into this one coefficient).
+    M_vel.x *= SP.ballBounceRestitution();
+    M_vel.y *= SP.ballBounceRestitution();
 }
+
 
 void
 Ball::checkPostAndCrossbar3D()
@@ -752,8 +741,8 @@ Ball::checkPostAndCrossbar3D()
     {
         const double vz_impact = M_vel_z;
         const double candidate = -vz_impact * SP.ballBounceRestitution();
-        applyBounceFriction( vz_impact, candidate );
         M_vel_z = candidate;
+        applyBounceEnergyLoss();
         M_pos_z = SP.goalHeight();
     }
 
@@ -767,10 +756,11 @@ Ball::checkPostAndCrossbar3D()
     {
         const double vz_impact = M_vel_z;
         const double candidate = -vz_impact * SP.ballBounceRestitution();
-        applyBounceFriction( vz_impact, candidate );
         M_vel_z = candidate;
+        applyBounceEnergyLoss();
     }
 }
+
 
 void
 Ball::incZ()
@@ -779,19 +769,28 @@ Ball::incZ()
 
     const bool held = ( M_stadium.ballCatcher() != static_cast< const Player * >( 0 ) );
 
+    // Consume any loft-kick vertical impulse pushed this cycle via
+    // Player::kickImpl()/Stadium::kickTaken() -- mirrors how MPObject::_inc()
+    // consumes M_accel into M_vel, just for the z axis. This MUST happen
+    // BEFORE the "resting" check below: a ball sitting at pos_z==0/vel_z==0
+    // that gets kicked airborne this very cycle must be recognized as
+    // no-longer-resting immediately, using the POST-impulse velocity --
+    // otherwise (bug fixed here) a freshly-kicked resting ball falls through
+    // to the ground-bounce catch-all further down, which mistakes the brand
+    // new upward impulse for a zero-height "landing impact" and reflects it
+    // via -vel*ballBounceRestitution(), silently destroying most of the
+    // kick's vertical velocity and delaying/flattening the resulting arc.
+    M_vel_z += M_accel_z;
+    M_accel_z = 0.0;
+
     // A ball resting flat on the ground must not have gravity re-applied to
     // it (gravity alone is typically bigger than bounce_stop_speed, so a
     // resting ball would "fall" every cycle, bounce back up, and never
     // settle -- see 3d-kick-lab/physics.js step()'s "resting" guard). A ball
     // currently held by a goalie must not silently accumulate vel_z either,
-    // or releasing it would cause an unphysical velocity spike.
+    // or releasing it would cause an unphysical velocity spike. Computed
+    // AFTER the impulse consumption above so a same-cycle kick is honored.
     const bool resting = ( M_pos_z <= 0.0 && M_vel_z == 0.0 );
-
-    // Consume any loft-kick vertical impulse pushed this cycle via
-    // Player::kickImpl()/Stadium::kickTaken() -- mirrors how MPObject::_inc()
-    // consumes M_accel into M_vel, just for the z axis.
-    M_vel_z += M_accel_z;
-    M_accel_z = 0.0;
 
     if ( held )
     {
@@ -823,15 +822,15 @@ Ball::incZ()
 
             if ( std::fabs( candidate ) < bounceSettleThreshold() )
             {
-                applyBounceFriction( vz_impact, 0.0 );
                 M_vel_z = 0.0;
+                applyBounceEnergyLoss();
                 M_pos_z = 0.0;
             }
             else
             {
                 const double remaining = 1.0 - frac;
-                applyBounceFriction( vz_impact, candidate );
                 M_vel_z = candidate;
+                applyBounceEnergyLoss();
                 M_pos_z = std::max( 0.0,
                                     candidate * remaining
                                     - 0.5 * SP.gravity() * remaining * remaining );
@@ -846,8 +845,17 @@ Ball::incZ()
 
     // Legacy/clamp-to-zero bounce path (used when precise_bounce_timing is
     // false, or as a catch-all for any case the precise branch above didn't
-    // already resolve this cycle).
-    if ( ! bounced && M_pos_z <= 0.0 )
+    // already resolve this cycle). BUG FIX: this block MUST also be gated on
+    // `! resting`, in addition to `! bounced` -- without it, this fired on
+    // EVERY cycle a resting/rolling ball spent at pos_z<=0 (not just on a
+    // genuine new impact), because a resting ball never sets `bounced=true`
+    // (only the airborne precise-timing branch above does, itself skipped
+    // while resting). That meant applyBounceEnergyLoss() -- unconditionally
+    // scaling vel.x/vel.y by ball_bounce_restitution -- was being applied
+    // every single cycle to a plain rolling grounder, on top of the normal
+    // ball_decay friction below, killing its speed almost instantly. Ported
+    // from 3d-kick-lab/physics.js's step() (same fix, same root cause).
+    if ( ! resting && ! bounced && M_pos_z <= 0.0 )
     {
         M_pos_z = 0.0;
 
@@ -860,27 +868,34 @@ Ball::incZ()
 
         if ( std::fabs( candidate ) < bounceSettleThreshold() )
         {
-            applyBounceFriction( vz_impact, 0.0 );
             M_vel_z = 0.0;
+            applyBounceEnergyLoss();
         }
         else
         {
-            applyBounceFriction( vz_impact, candidate );
             M_vel_z = candidate;
+            applyBounceEnergyLoss();
         }
     }
 
     checkPostAndCrossbar3D();
 
-    // Ground/air xy-decay split (ball_decay while grounded, air_decay while
-    // airborne) -- NOTE this is layered ON TOP OF the unconditional
-    // M_vel *= M_decay already applied by the (unmodified) shared
-    // MPObject::_inc() this same cycle, since that decay is not gated by z;
-    // see plan_spec.md Step 2 verification notes for this known 3D-mode-only
-    // double-decay caveat (inert/no effect in 2d_mode).
-    const double decay = ( M_pos_z > 1.0e-6 ? SP.airDecay() : M_decay );
-    M_vel.x *= decay;
-    M_vel.y *= decay;
+    // No friction at all while airborne (air_decay was removed entirely --
+    // horizontal speed is fully conserved in flight, gravity governs z
+    // only); ball_decay friction applies ONLY once the ball is on the
+    // ground. MPObject::_inc() (run earlier this same cycle, shared 2D
+    // code, unmodified) already applied one full M_decay reduction to
+    // vel.x/vel.y unconditionally, regardless of z -- on the ground that is
+    // exactly the desired ball_decay friction, so nothing more is needed
+    // here. While airborne, undo that already-applied M_decay by dividing
+    // it back out, since a 3D-mode ball must not lose any horizontal speed
+    // in flight. Ported from 3d-kick-lab/physics.js's step(), which has no
+    // airborne friction term at all.
+    if ( M_pos_z > 1.0e-6 && M_decay > 1.0e-9 )
+    {
+        M_vel.x /= M_decay;
+        M_vel.y /= M_decay;
+    }
 
     // Ground roll-stop: once a resting ball's horizontal speed decays below
     // roll_stop_speed, freeze it fully instead of simulating an
@@ -894,3 +909,4 @@ Ball::incZ()
         }
     }
 }
+

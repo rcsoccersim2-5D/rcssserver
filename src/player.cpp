@@ -1309,6 +1309,7 @@ Player::kick( double power,
     kickImpl( power, dir, loft );
 }
 
+
 void
 Player::kickImpl( double power,
                   double dir,
@@ -1379,23 +1380,37 @@ Player::kickImpl( double power,
     {
         const ServerParam & SP = ServerParam::instance();
 
-        const double height_frac = M_stadium.ball().posZ() / SP.playerHeight();
-        eff_power -= SP.heightPowerCost() * height_frac;
+        // Recompute eff_power including the height penalty as part of the
+        // SAME multiplicative power factor used for dir_diff/dist_ball
+        // above, instead of subtracting a raw height_power_cost*height_frac
+        // term (wrong units -- not scaled by power/kickPowerRate). Ported
+        // from 3d-kick-lab/physics.js's kick().
+        const double height_frac
+            = std::max( 0.0, M_stadium.ball().posZ() ) / SP.playerHeight();
+
+        eff_power
+            = power
+            * M_player_type->kickPowerRate()
+            * (1.0 - 0.25*dir_diff/M_PI
+                   - 0.25*std::max( 0.0, dist_ball )/M_player_type->kickableMargin()
+                   - SP.heightPowerCost() * height_frac);
         eff_power = std::max( 0.0, eff_power );
 
-        // loft "costs" power -- kicking upward reduces the push available
-        // for the horizontal/vertical split below.
-        const double eff_power_total
-            = eff_power * ( 1.0 - SP.loftPowerCost() * ( loft / ( M_PI * 0.5 ) ) );
-
-        const double horiz = eff_power_total * std::cos( loft );
-        accel_z = eff_power_total * std::sin( loft );
+        // A kick is just a force vector of magnitude eff_power pointed at
+        // (dir, loft). horiz/accel_z are a PURE geometric split of that same
+        // magnitude across the horizontal/vertical axes -- no axis is
+        // "cheaper" or "more expensive" to aim at than another, so loft no
+        // longer costs any extra power (loft_power_cost was removed).
+        // Ported from 3d-kick-lab/physics.js's kick().
+        const double horiz = eff_power * std::cos( loft );
+        accel_z = eff_power * std::sin( loft );
 
         eff_power = horiz;
     }
 
     PVector accel = PVector::fromPolar( eff_power,
                                         dir + angleBodyCommitted() );
+
 
     //         // pfr 8/14/00: for RC2000 evaluation
     //         // add noise to kick
@@ -1573,27 +1588,33 @@ Player::doLongKick()
     // inert (accel_z stays 0.0, eff_power/accel byte-identical to the
     // pre-existing formula) whenever is2dMode()==true or M_long_kick_loft==0.0
     // (the default, since long_kick()'s public override always calls
-    // longKickImpl(power, dir, 0.0)).
+    // longKickImpl(power, dir, 0.0)). Ported from 3d-kick-lab/physics.js's
+    // kick().
     double accel_z = 0.0;
     if ( ! ServerParam::instance().is2dMode() && M_long_kick_loft != 0.0 )
     {
         const ServerParam & SP = ServerParam::instance();
 
-        const double height_frac = M_stadium.ball().posZ() / SP.playerHeight();
-        eff_power -= SP.heightPowerCost() * height_frac;
+        const double height_frac
+            = std::max( 0.0, M_stadium.ball().posZ() ) / SP.playerHeight();
+
+        eff_power = M_long_kick_power
+            * ( M_player_type->kickPowerRate() * ServerParam::instance().longKickPowerFactor() )
+            * (1.0 - 0.25*dir_diff/M_PI
+                   - 0.25*std::max( 0.0, dist_ball )/M_player_type->kickableMargin()
+                   - SP.heightPowerCost() * height_frac);
         eff_power = std::max( 0.0, eff_power );
 
-        const double eff_power_total
-            = eff_power * ( 1.0 - SP.loftPowerCost() * ( M_long_kick_loft / ( M_PI * 0.5 ) ) );
-
-        const double horiz = eff_power_total * std::cos( M_long_kick_loft );
-        accel_z = eff_power_total * std::sin( M_long_kick_loft );
+        // Pure geometric horiz/vert split -- no loft power cost anymore.
+        const double horiz = eff_power * std::cos( M_long_kick_loft );
+        accel_z = eff_power * std::sin( M_long_kick_loft );
 
         eff_power = horiz;
     }
 
     PVector accel = PVector::fromPolar( eff_power,
                                         M_long_kick_dir + angleBodyCommitted() );
+
 
     // [0.5, 1.0]
     double pos_rate
@@ -2185,6 +2206,16 @@ void
 Player::tackle( double power_or_angle,
                 bool foul )
 {
+    // TODO(3d-ball-extension): tackle is still purely 2D — the resulting
+    // `accel` PVector below only ever perturbs the ball's x/y velocity
+    // (see Stadium::tackleTaken() -> MPObject::push(const PVector&)).
+    // Ball z/vel_z are left completely untouched by a tackle, even when
+    // 2d_mode==false and the ball is airborne at the moment of the tackle.
+    // This mirrors legacy (pre-3D) behavior exactly, so no regression was
+    // introduced, but it was never revisited as part of the 3D ball-flight
+    // plan. Revisit later if a "tackle can pop an airborne ball down/up"
+    // behavior is ever desired (would need a z-aware push, akin to the
+    // existing MPObject::pushZ(double) used elsewhere).
     if ( M_command_done )
     {
         return;

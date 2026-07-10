@@ -634,17 +634,15 @@ private:
 
     // 20.0.0 -- 3D ball extension (Step 1: inert until consumed)
     bool M_2d_mode; /* master gate: true (default) reproduces today's exact 2D behavior */
-    double M_player_height; /* player height, used for goalie catch / header gating */
+    double M_player_height; /* player height AND max reach height for kickability/heading (merged from the former separate player_reach_height) */
     double M_goal_height; /* goal height, used for 3D crossbar collision */
     double M_gravity; /* PER-CYCLE gravity accel (not real-world 9.8) applied to ball vel_z */
-    double M_ball_bounce_restitution; /* ball vertical speed retained after a ground bounce */
-    double M_ball_bounce_friction; /* horizontal speed lost per unit of vertical impulse absorbed at bounce */
-    double M_loft_power_cost; /* kick power penalty applied as loft angle increases */
-    double M_air_decay; /* ball horizontal (x,y) decay while airborne (z > 0) */
+    double M_ball_bounce_restitution; /* fraction of the ball's ENTIRE velocity vector (vx,vy,vz) retained after a ground bounce */
     double M_bounce_stop_speed; /* predicted post-bounce speed threshold below which the ball settles */
     double M_roll_stop_speed; /* rolling (on-ground) speed threshold below which the ball settles */
-    double M_height_power_cost; /* kick power penalty as ball height approaches player_reach_height */
+    double M_height_power_cost; /* kick power penalty as ball height approaches player_height */
     bool M_precise_bounce_timing; /* analytical time-of-impact ground bounce vs. legacy clamp-to-zero */
+
 
 private:
 
@@ -1016,13 +1014,11 @@ public:
     double goalHeight() const { return M_goal_height; }
     double gravity() const { return M_gravity; }
     double ballBounceRestitution() const { return M_ball_bounce_restitution; }
-    double ballBounceFriction() const { return M_ball_bounce_friction; }
-    double loftPowerCost() const { return M_loft_power_cost; }
-    double airDecay() const { return M_air_decay; }
     double bounceStopSpeed() const { return M_bounce_stop_speed; }
     double rollStopSpeed() const { return M_roll_stop_speed; }
     double heightPowerCost() const { return M_height_power_cost; }
     bool preciseBounceTiming() const { return M_precise_bounce_timing; }
+
 };
 
 
