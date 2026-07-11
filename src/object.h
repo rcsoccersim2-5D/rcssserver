@@ -613,6 +613,21 @@ protected:
     virtual
     void collidedWithPost() = 0;
 
+    //! 3D ball extension: hook allowing a subclass to report that it is
+    //! currently flying above the goal frame's solid height, so the shared
+    //! 2D post-collision handling in _inc() (unchanged below) can let it
+    //! pass over the post's (x,y) footprint instead of bouncing off it.
+    //! Defaults to false (post is always solid) for every MPObject other
+    //! than Ball -- e.g. Player -- so this is a no-op/byte-identical change
+    //! for anything that isn't the ball. Ball overrides this using its
+    //! own height vs. ServerParam::goalHeight() (see object.cpp); it is
+    //! always false in 2d_mode since the ball's height never leaves 0.0.
+    virtual
+    bool aboveGoalHeight() const
+      {
+          return false;
+      }
+
     virtual
     double maxAccel() const = 0;
 
@@ -662,6 +677,9 @@ public:
     virtual
     void collidedWithPost() override
       { }
+
+    virtual
+    bool aboveGoalHeight() const override;
 
     virtual
     double maxAccel() const override

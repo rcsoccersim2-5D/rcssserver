@@ -242,7 +242,8 @@ protected:
                           PVector pos );
 
     bool crossGoalLine( const Side side,
-                        const PVector & prev_ball_pos );
+                        const PVector & prev_ball_pos,
+                        const double prev_ball_pos_z );
 
     void placePlayersInTheirField();
 
@@ -598,6 +599,11 @@ private:
 
     int M_after_goal_time;
     PVector M_prev_ball_pos;
+    //! 3D ball extension: ball height alongside M_prev_ball_pos, so
+    //! crossGoalLine() can interpolate the ball's height at the goal-line
+    //! crossing the same way it already interpolates the y-intercept.
+    //! Always 0.0 in 2d_mode, since Ball::posZ() never leaves 0.0 there.
+    double M_prev_ball_pos_z;
 
 public:
     TouchRef( Stadium& stadium )
@@ -608,7 +614,8 @@ public:
           M_last_indirect_kicker( nullptr ),
           M_indirect_mode( false ),
           M_after_goal_time( 0 ),
-          M_prev_ball_pos( 0.0, 0.0 )
+          M_prev_ball_pos( 0.0, 0.0 ),
+          M_prev_ball_pos_z( 0.0 )
       {}
 
     virtual
@@ -866,6 +873,8 @@ private:
     const Player * M_last_taker;
 
     PVector M_prev_ball_pos;
+    //! 3D ball extension: see TouchRef::M_prev_ball_pos_z for the rationale.
+    double M_prev_ball_pos_z;
 
     bool M_timeover;
 public:

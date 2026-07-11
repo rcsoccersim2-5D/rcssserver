@@ -400,7 +400,8 @@ Referee::isPenaltyShootOut( const PlayMode pm,
 
 bool
 Referee::crossGoalLine( const Side side,
-                        const PVector & prev_ball_pos )
+                        const PVector & prev_ball_pos,
+                        const double prev_ball_pos_z )
 {
     if ( prev_ball_pos.x == M_stadium.ball().pos().x )
     {
@@ -464,9 +465,25 @@ Referee::crossGoalLine( const Side side,
     //      std::cout << time << ": x = " << x << std::endl;
     //      std::cout << time << ": y_inter = " << y_intercept << std::endl;
 
+    if ( std::fabs( y_intercept ) > ( ServerParam::instance().goalWidth()*0.5
+                                      + ServerParam::instance().goalPostRadius() ) )
+    {
+        return false;
+    }
 
-    return std::fabs( y_intercept ) <= ( ServerParam::instance().goalWidth()*0.5
-                                         + ServerParam::instance().goalPostRadius() );
+    // 3D ball extension: interpolate the ball's height at the same
+    // goal-line crossing point used for y_intercept above (same
+    // gradient/offset technique, just for z instead of y), and only count
+    // it as a goal if the ball passed through the goal frame's solid
+    // height, not over the crossbar. Always a no-op in 2d_mode, since both
+    // prev_ball_pos_z and the ball's current posZ() never leave 0.0 there,
+    // making z_intercept == 0.0 <= goalHeight() unconditionally true.
+    double delta_z = M_stadium.ball().posZ() - prev_ball_pos_z;
+    double z_gradient = delta_z / delta_x;
+    double z_offset = prev_ball_pos_z - z_gradient * prev_ball_pos.x;
+    double z_intercept = z_gradient * x + z_offset;
+
+    return z_intercept <= ServerParam::instance().goalHeight();
 }
 
 //**********
@@ -2092,6 +2109,7 @@ TouchRef::analyse()
     analyseImpl();
 
     M_prev_ball_pos = M_stadium.ball().pos();
+    M_prev_ball_pos_z = M_stadium.ball().posZ();
 }
 
 void
@@ -2341,7 +2359,7 @@ TouchRef::checkGoal()
 
     if ( ( ! M_stadium.ballCatcher()
            || M_stadium.ballCatcher()->side() == LEFT )
-         && crossGoalLine( LEFT, M_prev_ball_pos )
+         && crossGoalLine( LEFT, M_prev_ball_pos, M_prev_ball_pos_z )
          && ! isPenaltyShootOut( M_stadium.playmode() ) )
     {
         M_stadium.score( RIGHT );
@@ -2362,7 +2380,7 @@ TouchRef::checkGoal()
     }
     else if ( ( ! M_stadium.ballCatcher()
                 || M_stadium.ballCatcher()->side() == RIGHT )
-              && crossGoalLine( RIGHT, M_prev_ball_pos )
+              && crossGoalLine( RIGHT, M_prev_ball_pos, M_prev_ball_pos_z )
               && ! isPenaltyShootOut( M_stadium.playmode() )  )
     {
         M_stadium.score( LEFT );
@@ -3102,6 +3120,7 @@ PenaltyRef::PenaltyRef( Stadium& stadium )
       M_cur_pen_taker( NEUTRAL ),
       M_last_taker( nullptr ),
       M_prev_ball_pos( 0.0, 0.0 ),
+      M_prev_ball_pos_z( 0.0 ),
       M_timeover( false )
 {
 
@@ -3114,6 +3133,7 @@ PenaltyRef::analyse()
     analyseImpl();
 
     M_prev_ball_pos = M_stadium.ball().pos();
+    M_prev_ball_pos_z = M_stadium.ball().posZ();
 }
 
 void
@@ -3337,7 +3357,7 @@ PenaltyRef::handleTimer( const bool left_move_check,
          && right_move_check )
     {
         // if ball crossed goalline, process goal and set ball on goalline
-        if ( crossGoalLine( M_pen_side, M_prev_ball_pos ) )
+        if ( crossGoalLine( M_pen_side, M_prev_ball_pos, M_prev_ball_pos_z ) )
         {
             if ( pm == PM_PenaltyTaken_Left )
             {

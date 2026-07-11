@@ -499,127 +499,142 @@ MPObject::_inc()
     M_vel += noise();
     M_vel += wind();
 
-    CArea post = nearestPost( pos(), M_size );
-
-    //      std::cout << "pos = " << pos << endl;
-    //      std::cout << "nearest post = " << post << endl;
-    //      std::cout << "dist = " << (pos - post.center).r() << endl;
-    while ( ( pos() - post.center() ).r() < post.radius() )
+    // 3D ball extension: a ball flying above the goal frame's solid height
+    // (see aboveGoalHeight(), always false for Player/anything but Ball, and
+    // always false in 2d_mode) must sail over the post's (x,y) footprint
+    // instead of bouncing off it -- so skip the shared 2D post-collision
+    // handling below entirely while airborne above the post/crossbar.
+    if ( ! aboveGoalHeight() )
     {
-        //          std::cout << "In post\n";
-        // then the ball has overlapped the post.  Either it was moved
-        // there or "pushed".  Either way, we just move the ball away
-        // from the post
-        PVector diff = pos() - post.center();
-        if ( diff == PVector() )
-        {
-            diff = PVector::fromPolar( post.radius(),
-                                       drand( -M_PI, +M_PI ) );
-        }
-        else
-        {
-            diff.normalize( post.radius() );
-        }
+        CArea post = nearestPost( pos(), M_size );
 
-        M_pos = post.center() + diff;
-
+        //      std::cout << "pos = " << pos << endl;
+        //      std::cout << "nearest post = " << post << endl;
+        //      std::cout << "dist = " << (pos - post.center).r() << endl;
         while ( ( pos() - post.center() ).r() < post.radius() )
         {
-            // noise keeps it inside the post, move it a bit further out
-            diff.normalize( diff.r() * 1.01 );
+            //          std::cout << "In post\n";
+            // then the ball has overlapped the post.  Either it was moved
+            // there or "pushed".  Either way, we just move the ball away
+            // from the post
+            PVector diff = pos() - post.center();
+            if ( diff == PVector() )
+            {
+                diff = PVector::fromPolar( post.radius(),
+                                           drand( -M_PI, +M_PI ) );
+            }
+            else
+            {
+                diff.normalize( post.radius() );
+            }
+
             M_pos = post.center() + diff;
+
+            while ( ( pos() - post.center() ).r() < post.radius() )
+            {
+                // noise keeps it inside the post, move it a bit further out
+                diff.normalize( diff.r() * 1.01 );
+                M_pos = post.center() + diff;
+            }
+
+            if ( M_vel.x != 0.0 || M_vel.y != 0.0 )
+            {
+                PVector pos2center = post.center() - pos();
+                M_vel.rotate( -pos2center.th() );
+                M_vel.x = - M_vel.x;
+                M_vel.rotate( pos2center.th() );
+            }
+
+            post = nearestPost( pos(), M_size );
+            //         std::cout << M_stadium.time() << ": Colliding with post\n"
+            //                   << "  pos = " << pos() << '\n'
+            //                   << "  vel = " << vel() << '\n'
+            //                   << "  nearest post = " << post.center() << '\n'
+            //                   << "  dist = " << ( pos() - post.center() ).r() << std::endl;
+
+            collidedWithPost();
         }
 
-        if ( M_vel.x != 0.0 || M_vel.y != 0.0 )
+        PVector new_pos = pos() + M_vel;
+        CArea second_post = nearestPost( new_pos, M_size );
+        PVector inter;
+        bool second = false;
+
+        //      std::cout << "vel = " << vel << endl;
+        //      std::cout << "new_pos = " << new_pos << endl;
+        //int loop_count = 0;
+        while ( pos() != new_pos
+                && ( ( intersect( pos(), new_pos, post, inter ) )
+                     || ( post != second_post
+                          && ( second = intersect( pos(), new_pos, second_post, inter ) )
+                          )
+                     )
+                )
         {
-            PVector pos2center = post.center() - pos();
-            M_vel.rotate( -pos2center.th() );
-            M_vel.x = - M_vel.x;
-            M_vel.rotate( pos2center.th() );
+            //         ++loop_count;
+            //         std::cout << M_stadium.time() <<": Collision: " << loop_count << "\n"
+            //                   << "  pos=" << pos() << '\n';
+
+            // handle collision
+            M_pos = inter;
+
+            //         std::cout << "  intersect=" << pos() << '\n';
+
+            PVector rem = new_pos - pos();
+            PVector coll_2_circle;
+            if ( second )
+            {
+                coll_2_circle = second_post.center() - pos();
+            }
+            else
+            {
+                coll_2_circle = post.center() - pos();
+            }
+
+            // 2008-05-22 akiyama
+            // fixed endless-loop bug.
+            // If this small vector is not added to M_pos, intersect() may still
+            // return pos() as the intersect point.
+            M_pos += PVector::fromPolar( EPS, coll_2_circle.th() + 180.0 );
+
+            //         std::cout << "  rem = " << rem << '\n';
+
+            rem.rotate( -coll_2_circle.th() );
+            rem.x = -rem.x;
+            rem.rotate( coll_2_circle.th() );
+
+            new_pos = pos() + rem;
+            //         std::cout << "  rem = " << rem << '\n';
+
+            // setup post and second post for next loop
+            post = nearestPost( pos(), M_size );
+            second_post = nearestPost( new_pos, M_size );
+
+            //         std::cout << "  pos = " << pos() << '\n'
+            //                   << "  new_pos = " << new_pos << '\n'
+            //                   << "  nearest post = " << post.center() << '\n'
+            //                   << "  dist = " << ( pos() - post.center() ).r() << '\n';
+
+            // setup vel so it will decay normally.  The collisions are
+            // elastic, so the maginitude does not change, but the heading
+            // does
+            M_vel = PVector::fromPolar( M_vel.r(), rem.th() );
+            //         std::cout << "  vel = " << vel() << std::endl;
+
+            second = false;
+
+            collidedWithPost();
         }
 
-        post = nearestPost( pos(), M_size );
-        //         std::cout << M_stadium.time() << ": Colliding with post\n"
-        //                   << "  pos = " << pos() << '\n'
-        //                   << "  vel = " << vel() << '\n'
-        //                   << "  nearest post = " << post.center() << '\n'
-        //                   << "  dist = " << ( pos() - post.center() ).r() << std::endl;
-
-        collidedWithPost();
+        M_pos = new_pos;
     }
-
-    PVector new_pos = pos() + M_vel;
-    CArea second_post = nearestPost( new_pos, M_size );
-    PVector inter;
-    bool second = false;
-
-    //      std::cout << "vel = " << vel << endl;
-    //      std::cout << "new_pos = " << new_pos << endl;
-    //int loop_count = 0;
-    while ( pos() != new_pos
-            && ( ( intersect( pos(), new_pos, post, inter ) )
-                 || ( post != second_post
-                      && ( second = intersect( pos(), new_pos, second_post, inter ) )
-                      )
-                 )
-            )
+    else
     {
-        //         ++loop_count;
-        //         std::cout << M_stadium.time() <<": Collision: " << loop_count << "\n"
-        //                   << "  pos=" << pos() << '\n';
-
-        // handle collision
-        M_pos = inter;
-
-        //         std::cout << "  intersect=" << pos() << '\n';
-
-        PVector rem = new_pos - pos();
-        PVector coll_2_circle;
-        if ( second )
-        {
-            coll_2_circle = second_post.center() - pos();
-        }
-        else
-        {
-            coll_2_circle = post.center() - pos();
-        }
-
-        // 2008-05-22 akiyama
-        // fixed endless-loop bug.
-        // If this small vector is not added to M_pos, intersect() may still
-        // return pos() as the intersect point.
-        M_pos += PVector::fromPolar( EPS, coll_2_circle.th() + 180.0 );
-
-        //         std::cout << "  rem = " << rem << '\n';
-
-        rem.rotate( -coll_2_circle.th() );
-        rem.x = -rem.x;
-        rem.rotate( coll_2_circle.th() );
-
-        new_pos = pos() + rem;
-        //         std::cout << "  rem = " << rem << '\n';
-
-        // setup post and second post for next loop
-        post = nearestPost( pos(), M_size );
-        second_post = nearestPost( new_pos, M_size );
-
-        //         std::cout << "  pos = " << pos() << '\n'
-        //                   << "  new_pos = " << new_pos << '\n'
-        //                   << "  nearest post = " << post.center() << '\n'
-        //                   << "  dist = " << ( pos() - post.center() ).r() << '\n';
-
-        // setup vel so it will decay normally.  The collisions are
-        // elastic, so the maginitude does not change, but the heading
-        // does
-        M_vel = PVector::fromPolar( M_vel.r(), rem.th() );
-        //         std::cout << "  vel = " << vel() << std::endl;
-
-        second = false;
-
-        collidedWithPost();
+        // 3D ball extension: above the post/crossbar there is nothing solid
+        // to collide with, so just apply the plain (uncollided) movement.
+        M_pos = pos() + M_vel;
     }
 
-    M_pos = new_pos;
     M_vel *= M_decay;
     M_accel *= 0.0;
 }
@@ -670,6 +685,16 @@ Ball::Ball( Stadium & stadium )
       M_accel_z( 0.0 )
 {
 
+}
+
+
+bool
+Ball::aboveGoalHeight() const
+{
+    // Always false in 2d_mode, since M_pos_z never leaves 0.0 there --
+    // this override is provably inert unless a 3D-mode kick has actually
+    // lofted the ball above the goal frame's solid height.
+    return M_pos_z > ServerParam::instance().goalHeight();
 }
 
 
