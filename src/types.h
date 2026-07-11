@@ -207,10 +207,11 @@ const int REC_VERSION_6 = 6;
 // (see Logger::setSenders()'s monitor_version = log_version - 1 mapping).
 const int REC_VERSION_7 = 7;
 const int REC_VERSION_JSON = -1;
-// NOTE: DEFAULT_REC_VERSION intentionally stays at REC_VERSION_6 so
-// existing deployments keep logging in the legacy format unless an
-// operator explicitly opts in via gameLogVersion=7.
-const int DEFAULT_REC_VERSION = REC_VERSION_6;
+// NOTE: DEFAULT_REC_VERSION now defaults to REC_VERSION_7 so game logs
+// always record ball z/vel_z (3D ball extension) out of the box; set
+// gameLogVersion=6 explicitly to fall back to the legacy z-less format.
+const int DEFAULT_REC_VERSION = REC_VERSION_7;
+
 
 
 enum DispInfoMode {
