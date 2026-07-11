@@ -743,46 +743,67 @@ Ball::checkPostAndCrossbar3D()
 {
     const ServerParam & SP = ServerParam::instance();
 
-    // Reuse the existing 2D post-finder purely to obtain the nearest post's
-    // (x,y)/radius; this is a side-effect-free free-function call (CArea
+    // Reuse the existing 2D post-finder purely to obtain the nearest side
+    // post's x/radius; this is a side-effect-free free-function call (CArea
     // returned by value) and does not touch MPObject::_inc()'s shared
     // collision-loop state.
     const CArea post = nearestPost( pos(), M_size );
 
     const double half_goal_width = SP.goalWidth() * 0.5;
     const bool within_goal_mouth_y = std::fabs( pos().y ) <= half_goal_width + post.radius();
-    const bool at_goal_line_x = std::fabs( pos().x ) >= ServerParam::PITCH_LENGTH * 0.5 - post.radius();
 
-    if ( ! within_goal_mouth_y || ! at_goal_line_x )
+    if ( ! within_goal_mouth_y )
     {
-        // ball is nowhere near either goal's (x,y) mouth -- nothing to do
+        // ball is nowhere near the goal mouth's y-span, so the crossbar
+        // cannot be hit -- the side post itself is already handled by the
+        // ordinary 2D collision loop in MPObject::_inc() (still active for
+        // any height up to goalHeight, see aboveGoalHeight()), so there is
+        // nothing left for this function to do.
         return;
     }
 
-    // Crossbar: reflect vel_z (restitution-style, same as a ground bounce)
-    // if the ball is at/above goal height and still rising while inside the
-    // goal-mouth (x,y) span, instead of letting it fly through unimpeded.
-    if ( M_pos_z >= SP.goalHeight() && M_vel_z > 0.0 )
+    // The crossbar is treated as a horizontal cylinder of the SAME radius
+    // as the side posts, running along y, centered at the same goal-line x
+    // (post.center().x) and at height goalHeight. This lets the crossbar
+    // reuse the EXACT same elastic radial-mirror reflection already used
+    // for the side posts in MPObject::_inc() -- just performed in the
+    // (x,z) plane instead of (x,y) -- so both posts share one formulation:
+    // the ball mirrors around the post's center with its speed fully
+    // conserved (no restitution/energy loss), and gravity/decay continue
+    // to act on it afterward, independently, exactly as before.
+    const PVector crossbar_center( post.center().x, SP.goalHeight() );
+    PVector ball_xz( pos().x, M_pos_z );
+    PVector diff = ball_xz - crossbar_center;
+
+    if ( diff.r() >= post.radius() )
     {
-        const double vz_impact = M_vel_z;
-        const double candidate = -vz_impact * SP.ballBounceRestitution();
-        M_vel_z = candidate;
-        applyBounceEnergyLoss();
-        M_pos_z = SP.goalHeight();
+        // not overlapping the crossbar -- nothing to do
+        return;
     }
 
-    // Post-at-height: below goal height and inside the post's (x,y) circle
-    // -- treat like a vertical wall and reflect vel_z the same
-    // restitution-style way the (unmodified) 2D post bounce in
-    // MPObject::_inc() reflects vel.x/vel.y.
-    if ( M_pos_z <= SP.goalHeight()
-         && ( pos() - post.center() ).r() < post.radius()
-         && M_vel_z != 0.0 )
+    if ( diff == PVector() )
     {
-        const double vz_impact = M_vel_z;
-        const double candidate = -vz_impact * SP.ballBounceRestitution();
-        M_vel_z = candidate;
-        applyBounceEnergyLoss();
+        diff = PVector::fromPolar( post.radius(), drand( -M_PI, +M_PI ) );
+    }
+    else
+    {
+        diff.normalize( post.radius() );
+    }
+
+    ball_xz = crossbar_center + diff;
+    M_pos.x = ball_xz.x;
+    M_pos_z = ball_xz.y;
+
+    if ( M_vel.x != 0.0 || M_vel_z != 0.0 )
+    {
+        PVector vel_xz( M_vel.x, M_vel_z );
+        PVector pos2center = crossbar_center - ball_xz;
+        vel_xz.rotate( -pos2center.th() );
+        vel_xz.x = - vel_xz.x;
+        vel_xz.rotate( pos2center.th() );
+
+        M_vel.x = vel_xz.x;
+        M_vel_z = vel_xz.y;
     }
 }
 
