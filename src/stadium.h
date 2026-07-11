@@ -362,12 +362,13 @@ public:
                    const PVector & vel );
 
     // 3D ball extension: instantly stops the ball in place (vel -> 0,
-    // pos_z -> 0, vel_z -> 0). Added for Player::stop_ball() -- Player has
+    // pos_z -> 0, vel_z -> 0). Added for Player::chest_trap() -- Player has
     // no mutable access to Ball (ball() above returns a const reference),
     // so this mirrors moveBall()'s existing pattern of mediating ball
     // mutation through a dedicated Stadium method. See plan_spec.md Step 3
-    // (documented deviation, builder/planner comment thread).
-    void stopBall();
+    // (documented deviation, builder/planner comment thread). Renamed from
+    // stopBall -> chestTrap.
+    void chestTrap();
     bool movePlayer( const Side side,
                      const int unum,
                      const PVector & pos,

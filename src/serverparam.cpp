@@ -387,6 +387,7 @@ constexpr double LAND_FOCUS_DIST_NOISE_RATE = 0.00125;
 // 20.0.0 -- 3D ball extension (Step 1: inert until consumed)
 constexpr bool TWO_D_MODE = true;
 constexpr double PLAYER_HEIGHT = 2.0; // also the max reach height for kickability/heading (merged from the former separate player_reach_height)
+constexpr double TACKLE_HEIGHT = 0.5;
 constexpr double GOAL_HEIGHT = 2.0;
 constexpr double GRAVITY = 0.1; // per-cycle value (NOT real-world 9.8) -- see 3d-kick-lab/physics.js DEFAULT_PARAMS
 constexpr double BALL_BOUNCE_RESTITUTION = 0.5; // scales the ball's ENTIRE velocity vector (vx,vy,vz) on a ground bounce
@@ -973,6 +974,7 @@ ServerParam::addParams()
     // v20 -- 3D ball extension (Step 1: inert until consumed by later steps)
     addParam( "2d_mode", M_2d_mode, "Master gate for the 3D ball extension; true reproduces today's exact 2D behavior", 20 );
     addParam( "player_height", M_player_height, "Player height, used for goalie catch / header gating, and the max ball reach height for kickability", 20 );
+    addParam( "tackle_height", M_tackle_height, "Max ball height still reachable by a tackle", 20 );
     addParam( "goal_height", M_goal_height, "Goal height, used for 3D crossbar collision", 20 );
     addParam( "gravity", M_gravity, "Per-cycle gravity acceleration applied to ball vel_z (not real-world 9.8)", 20 );
     addParam( "ball_bounce_restitution", M_ball_bounce_restitution, "Fraction of the ball's entire velocity vector (vx,vy,vz) retained after a ground bounce", 20 );
@@ -1507,6 +1509,7 @@ ServerParam::setDefaults()
     // 20.0.0 -- 3D ball extension (Step 1: inert until consumed)
     M_2d_mode = TWO_D_MODE;
     M_player_height = PLAYER_HEIGHT;
+    M_tackle_height = TACKLE_HEIGHT;
     M_goal_height = GOAL_HEIGHT;
     M_gravity = GRAVITY;
     M_ball_bounce_restitution = BALL_BOUNCE_RESTITUTION;

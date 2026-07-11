@@ -90,8 +90,8 @@ public:
     virtual void long_kick( double power, double dir, double loft = 0.0 ) = 0;
     // 3D ball extension: instantly stops the ball (vel -> 0, pos_z -> 0,
     // vel_z -> 0) when kickable. Only legal when !is2dMode(). See
-    // plan_spec.md Step 3.
-    virtual void stop_ball() = 0;
+    // plan_spec.md Step 3. Renamed from stop_ball -> chest_trap.
+    virtual void chest_trap() = 0;
     virtual void goalieCatch( double dir ) = 0;
     virtual void say( std::string message ) = 0;
     virtual void sense_body() = 0;

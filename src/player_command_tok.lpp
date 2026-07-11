@@ -57,7 +57,7 @@ turn_neck { return RCSS_PCOM_TURN_NECK; }
 change_focus { return RCSS_PCOM_CHANGE_FOCUS; }
 kick { return RCSS_PCOM_KICK; }
 long_kick { return RCSS_PCOM_LONG_KICK; }
-stop_ball { return RCSS_PCOM_STOP_BALL; }
+chest_trap { return RCSS_PCOM_CHEST_TRAP; }
 catch { return RCSS_PCOM_CATCH; }
 say { return RCSS_PCOM_SAY; }
 sense_body { return RCSS_PCOM_SENSE_BODY; }

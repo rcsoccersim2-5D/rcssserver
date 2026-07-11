@@ -1384,7 +1384,7 @@ RegHolder vp16 = VisualSenderPlayer::factory().autoReg( &create< VisualSenderPla
 RegHolder vp17 = VisualSenderPlayer::factory().autoReg( &create< VisualSenderPlayerV13 >, 17 );
 RegHolder vp18 = VisualSenderPlayer::factory().autoReg( &create< VisualSenderPlayerV18 >, 18 );
 RegHolder vp19 = VisualSenderPlayer::factory().autoReg( &create< VisualSenderPlayerV18 >, 19 );
-// v20: 3D ball-extension protocol (loft kick/elevation/stop_ball) reuses the same
+// v20: 3D ball-extension protocol (loft kick/elevation/chest_trap) reuses the same
 // version-18 sender - the new elevation fields are emitted by the version-20
 // SerializerPlayer (SerializerPlayerStdv20, looked up separately by version()),
 // not by this sender class itself. Missing this line left version-20 clients

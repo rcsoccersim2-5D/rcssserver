@@ -635,6 +635,7 @@ private:
     // 20.0.0 -- 3D ball extension (Step 1: inert until consumed)
     bool M_2d_mode; /* master gate: true (default) reproduces today's exact 2D behavior */
     double M_player_height; /* player height AND max reach height for kickability/heading (merged from the former separate player_reach_height) */
+    double M_tackle_height; /* max ball height still reachable by a tackle */
     double M_goal_height; /* goal height, used for 3D crossbar collision */
     double M_gravity; /* PER-CYCLE gravity accel (not real-world 9.8) applied to ball vel_z */
     double M_ball_bounce_restitution; /* fraction of the ball's ENTIRE velocity vector (vx,vy,vz) retained after a ground bounce */
@@ -1011,6 +1012,7 @@ public:
     // v20 -- 3D ball extension
     bool is2dMode() const { return M_2d_mode; }
     double playerHeight() const { return M_player_height; }
+    double tackleHeight() const { return M_tackle_height; }
     double goalHeight() const { return M_goal_height; }
     double gravity() const { return M_gravity; }
     double ballBounceRestitution() const { return M_ball_bounce_restitution; }

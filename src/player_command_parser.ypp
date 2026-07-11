@@ -75,7 +75,7 @@ namespace
 %token RCSS_PCOM_CHANGE_FOCUS "change_focus"
 %token RCSS_PCOM_KICK "kick"
 %token RCSS_PCOM_LONG_KICK "long_kick"
-%token RCSS_PCOM_STOP_BALL "stop_ball"
+%token RCSS_PCOM_CHEST_TRAP "chest_trap"
 %token RCSS_PCOM_CATCH "catch"
 %token RCSS_PCOM_SAY "say"
 %token RCSS_PCOM_UNQ_SAY "unquoted say"
@@ -138,7 +138,7 @@ command : dash_com
           | change_focus_com
           | kick_com
           | long_kick_com
-          | stop_ball_com
+          | chest_trap_com
           | catch_com
           | say_com
           | sense_body_com
@@ -228,10 +228,11 @@ long_kick_com : RCSS_PCOM_LP RCSS_PCOM_LONG_KICK floating_point_number floating_
 ;
 
 /* 3D ball extension: new 0-arg command, only legal when !is2dMode() (see
-   Player::stop_ball() for the runtime gate). See plan_spec.md Step 3. */
-stop_ball_com : RCSS_PCOM_LP RCSS_PCOM_STOP_BALL RCSS_PCOM_RP
+   Player::chest_trap() for the runtime gate). See plan_spec.md Step 3.
+   Renamed from stop_ball -> chest_trap. */
+chest_trap_com : RCSS_PCOM_LP RCSS_PCOM_CHEST_TRAP RCSS_PCOM_RP
                 {
-                  BUILDER.stop_ball();
+                  BUILDER.chest_trap();
                 }
 ;
 

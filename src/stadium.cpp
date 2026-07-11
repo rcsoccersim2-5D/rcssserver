@@ -1422,8 +1422,9 @@ Stadium::moveBall( const PVector & pos,
 
 
 // 3D ball extension: see plan_spec.md Step 3 (documented deviation).
+// Renamed from stopBall -> chestTrap.
 void
-Stadium::stopBall()
+Stadium::chestTrap()
 {
     M_ball->moveTo( M_ball->pos(),
                     PVector( 0.0, 0.0 ),
@@ -1720,7 +1721,7 @@ Stadium::collisions()
         {
             // 3D ball extension: an airborne ball above a player's reach
             // height should pass over them, not collide -- same reach-
-            // height gate used by kickImpl()/stop_ball()/goalieCatch() in
+            // height gate used by kickImpl()/chest_trap()/goalieCatch() in
             // player.cpp. Short-circuited on is2dMode() so this is a
             // provable no-op (ball posZ() is always 0.0 in 2D mode) for
             // existing/default deployments.

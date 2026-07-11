@@ -1481,8 +1481,9 @@ Player::kickImpl( double power,
 }
 
 // 3D ball extension: instantly stops the ball. See plan_spec.md Step 3.
+// Renamed from stop_ball -> chest_trap.
 void
-Player::stop_ball()
+Player::chest_trap()
 {
     if ( M_command_done )
     {
@@ -1494,9 +1495,9 @@ Player::stop_ball()
     // Only legal when the server is running in full 3D mode. Mirrors
     // kickImpl()'s playmode illegal-command handling above (M_state |=
     // KICK_FAULT; return;) as closely as possible -- there is no dedicated
-    // STOP_BALL_FAULT bit in types.h, and adding one is out of scope for
+    // CHEST_TRAP_FAULT bit in types.h, and adding one is out of scope for
     // this step (touching only pcombuilder.h/player.h/player.cpp/the
-    // grammar+lexer per plan_spec.md Step 3), so an illegal stop_ball is a
+    // grammar+lexer per plan_spec.md Step 3), so an illegal chest_trap is a
     // silent no-op, same as e.g. sense_body()/score() which also carry no
     // fault bit of their own.
     if ( ServerParam::instance().is2dMode() )
@@ -1516,7 +1517,15 @@ Player::stop_ball()
         return;
     }
 
-    M_stadium.stopBall();
+    M_stadium.chestTrap();
+
+    // Offside enforcement: reuse the SAME dispatch mechanism as a real kick
+    // (Stadium::kickTaken() fans out to every Referee, incl. OffsideRef::
+    // kickTaken() -> setOffsideMark()). accel is (0,0)/accel_z 0.0 since
+    // chestTrap() already zeroed the ball's velocity in-place -- this call
+    // exists purely to notify the referees (offside marking/intentional-
+    // action bookkeeping), not to apply any further impulse to the ball.
+    M_stadium.kickTaken( *this, PVector( 0.0, 0.0 ), 0.0 );
 }
 
 // 2011-05-14 akiyama
@@ -1587,7 +1596,7 @@ Player::doLongKick()
         return;
     }
 
-    // 3D ball extension: same reach-height gate as kickImpl()/stop_ball()
+    // 3D ball extension: same reach-height gate as kickImpl()/chest_trap()
     // above (long_kick is currently disabled via the early `return;` in
     // longKickImpl(), but this keeps doLongKick()'s gating consistent with
     // the other kick-family commands should it ever be re-enabled).
@@ -1836,10 +1845,11 @@ Player::goalieCatch( double dir )
         // 3D ball extension: explicitly reset the BALL's velocity/z on a
         // successful catch (separate from the goalie's own M_vel reset
         // above, which never touched the ball) -- see plan_spec.md Step 4.
-        // Stadium::stopBall() is the sanctioned Stadium-side mutation
-        // added in Step 3 for exactly this kind of external ball reset,
-        // since Stadium::ball() only exposes a const reference.
-        M_stadium.stopBall();
+        // Stadium::chestTrap() (renamed from stopBall) is the sanctioned
+        // Stadium-side mutation added in Step 3 for exactly this kind of
+        // external ball reset, since Stadium::ball() only exposes a const
+        // reference.
+        M_stadium.chestTrap();
     }
     else
     {
@@ -2268,13 +2278,13 @@ Player::tackle( double power_or_angle,
         return;
     }
 
-    // 3D ball extension: same reach-height gate as kickImpl()/stop_ball()/
+    // 3D ball extension: same reach-height gate as kickImpl()/chest_trap()/
     // goalieCatch()/Stadium::collisions() -- an airborne ball above
-    // playerHeight() can't be tackled either. Short-circuited on
+    // tackleHeight() can't be tackled either. Short-circuited on
     // is2dMode() so this is a provable no-op (ball posZ() is always 0.0
     // in 2D mode) for existing/default deployments.
     if ( ! ServerParam::instance().is2dMode()
-         && M_stadium.ball().posZ() > ServerParam::instance().playerHeight() )
+         && M_stadium.ball().posZ() > ServerParam::instance().tackleHeight() )
     {
         M_stadium.failedTackleTaken( *this, foul );
         M_state |= TACKLE_FAULT;

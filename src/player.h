@@ -515,8 +515,10 @@ private:
 
     // 3D ball extension: instantly stops the ball. Only legal when
     // !is2dMode() and the ball is currently kickable. See plan_spec.md
-    // Step 3.
-    void stop_ball() override;
+    // Step 3. Renamed from stop_ball -> chest_trap; also dispatches
+    // Stadium::kickTaken()-style referee fan-out so an offside-positioned
+    // player is marked, same as a real kick.
+    void chest_trap() override;
 
     void goalieCatch( double dir ) override;
     void say( std::string message ) override;
