@@ -8,7 +8,7 @@ applyTo: 'src/serverparam.*,src/pcombuilder.*,src/player_command_parser.ypp,src/
 Protocol version **20** (player/coach serializers) and monitor version **6** add an OPT-IN 3D ball-flight extension (loft kicks, gravity, bouncing, height-aware goalie catch) to rcssserver. **Nothing changes for existing clients** unless they explicitly negotiate the new version number — this doc is for people updating an **agent team** (e.g. `helios-base`/`librcsc`) or **`rcssmonitor`** to consume the new fields.
 - Server-side gate: `2d_mode` `ServerParam` (default `true`) forces byte-identical legacy behavior regardless of what version a client negotiates; a server operator must explicitly set `2d_mode=false` to enable real 3D physics.
 - New wire additions (only sent to v20+ clients / v6+ monitors): a trailing `elevation` field in `(see)` ball entries, ball `z`/`vel_z` in `(fullstate)`, and ball z in the monitor `(show ...)` stream.
-- New commands: `kick`/`long_kick` gain an optional 3rd `loft` argument; a brand-new `stop_ball` command is added.
+- New commands: `kick`/`long_kick` gain an optional 3rd `loft` argument; a brand-new `chest_trap` command is added (renamed from its original working name `stop_ball`).
 - **Reference implementations that need updating first**: `librcsc` (client protocol library) and `helios-base` (sample agent team) — see Related Repositories below. `rcssmonitor` needs a v6 monitor-serializer consumer to render the new ball-z field.
 
 ## Overview
@@ -27,10 +27,11 @@ This is a documentation-only cross-reference for people who do NOT work in this 
 - New: `(kick power dir loft)` / `(long_kick power dir loft)` — `loft` is a degrees-style angle (0 = flat/grounded, higher = more airborne arc), consumed by `Player::kickImpl()`/`longKickImpl()` server-side. No new fault/error response was added for out-of-range loft values — same clamping-not-rejecting philosophy as `power`/`dir`.
 - These are backward compatible: `rcss::pcom::Builder::kick`/`long_kick` widened to a 3rd parameter with a `= 0.0` default, so a client that never sends the 3rd argument is completely unaffected.
 
-### `stop_ball` — new command
-- Syntax: `(stop_ball)` — no arguments.
-- Semantics: immediately zeroes the ball's velocity (all 3 axes) at its current position, only when the ball is currently kickable by the sending player (same `ballKickable()` gate as `kick`) — server-side implemented as `Player::stop_ball()` → `Stadium::stopBall()`.
-- Silently rejected (no-op, no error message) when `2d_mode==true` or the ball is not kickable — mirrors the existing silent-reject pattern of `Player::move()`, so client authors should not expect an `(error ...)` response to a rejected `stop_ball`.
+### `chest_trap` — new command (renamed from `stop_ball`)
+- Syntax: `(chest_trap)` — no arguments.
+- Semantics: immediately zeroes the ball's velocity (all 3 axes) at its current position, only when the ball is currently kickable by the sending player (same `ballKickable()` gate as `kick`) — server-side implemented as `Player::chest_trap()` → `Stadium::chestTrap()`.
+- Silently rejected (no-op, no error message) when `2d_mode==true` or the ball is not kickable — mirrors the existing silent-reject pattern of `Player::move()`, so client authors should not expect an `(error ...)` response to a rejected `chest_trap`.
+- Offside enforcement: `Player::chest_trap()` also calls `Stadium::kickTaken( *this, PVector(0,0), 0.0 )` right after `Stadium::chestTrap()`, reusing the SAME referee fan-out dispatch a real kick uses (`Stadium::kickTaken()` iterates `M_referees` calling `Referee::kickTaken()`), so an offside-positioned player performing a chest trap is marked exactly as a kick would mark them (via `OffsideRef::kickTaken()` → `setOffsideMark()`). The zero accel/accel_z means no additional impulse is applied to the ball — the call exists purely for referee notification.
 - Primary use case: a 3D-aware agent that wants to deliberately "trap"/deaden a bouncing or airborne ball instead of just receiving whatever velocity physics left it with.
 
 ### `(see)` — new trailing `elevation` field on ball entries
@@ -68,7 +69,7 @@ Per this repo's root `copilot-instructions.md` Related Repositories table, these
 ## See Also
 - [config-params.instructions.md](config-params.instructions.md) — the 9 `ServerParam` fields (`2d_mode`, `gravity`, etc.) and their defaults.
 - [entities.instructions.md](entities.instructions.md) — `Ball`-only z physics (`incZ()`), height-gated goalie catch.
-- [player-command-protocol.instructions.md](player-command-protocol.instructions.md) — `kick`/`long_kick` 3-arg grammar, `stop_ball` grammar chain.
+- [player-command-protocol.instructions.md](player-command-protocol.instructions.md) — `kick`/`long_kick` 3-arg grammar, `chest_trap` grammar chain.
 - [serialization-protocol-versions.instructions.md](serialization-protocol-versions.instructions.md) — `SerializerPlayerStdv20`/`SerializerCoachStdv20` implementation detail.
 - [monitor-protocol.instructions.md](monitor-protocol.instructions.md) — `SerializerMonitorStdv6` implementation detail.
 - [logging-and-savers.instructions.md](logging-and-savers.instructions.md) — `REC_VERSION_7` game-log format.
