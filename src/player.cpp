@@ -539,6 +539,14 @@ Player::parseMsg( char * msg,
     }
     Logger::instance().writePlayerLog( M_stadium, *this, command, RECV );
 
+    // Debug aid: print every raw command a player sends, tagged with the
+    // current simulation cycle and the player's side/uniform number, so it
+    // is easy to see on the server console what each connected agent is
+    // doing each cycle (e.g. while testing src/py_test_client.py).
+    std::cout << "[cycle " << M_stadium.time() << "] player "
+              << SideStr( side() ) << unum() << " -> " << command
+              << std::endl;
+
     /** Call the PlayerCommandParser */
     if (
 #ifndef __CYGWIN__
@@ -1352,7 +1360,13 @@ Player::kickImpl( double power,
         return;
     }
 
-    if ( ! ballKickable() )
+    // 3D ball extension: mirror goalieCatch()'s reach-height gate -- a ball
+    // above playerHeight() is not kickable either, not just uncatchable.
+    // Short-circuited on is2dMode() so this is a provable no-op (posZ() is
+    // always 0.0 in 2D mode) for existing/default deployments.
+    if ( ! ballKickable()
+         || ( ! ServerParam::instance().is2dMode()
+              && M_stadium.ball().posZ() > ServerParam::instance().playerHeight() ) )
     {
         M_state |= KICK_FAULT;
         M_stadium.failedKickTaken( *this );
@@ -1490,7 +1504,14 @@ Player::stop_ball()
         return;
     }
 
-    if ( ! ballKickable() )
+    // 3D ball extension: same reach-height gate as kickImpl()/goalieCatch()
+    // -- a ball above playerHeight() can't be trapped either. Short-
+    // circuited on is2dMode() (already returned above for 2D mode, so this
+    // clause is only reachable in 3D mode, but kept explicit/symmetric with
+    // the other gates for readability).
+    if ( ! ballKickable()
+         || ( ! ServerParam::instance().is2dMode()
+              && M_stadium.ball().posZ() > ServerParam::instance().playerHeight() ) )
     {
         return;
     }
@@ -1566,7 +1587,13 @@ Player::doLongKick()
         return;
     }
 
-    if ( ! ballKickable() )
+    // 3D ball extension: same reach-height gate as kickImpl()/stop_ball()
+    // above (long_kick is currently disabled via the early `return;` in
+    // longKickImpl(), but this keeps doLongKick()'s gating consistent with
+    // the other kick-family commands should it ever be re-enabled).
+    if ( ! ballKickable()
+         || ( ! ServerParam::instance().is2dMode()
+              && M_stadium.ball().posZ() > ServerParam::instance().playerHeight() ) )
     {
         M_state |= KICK_FAULT;
         M_stadium.failedKickTaken( *this );
@@ -2237,6 +2264,19 @@ Player::tackle( double power_or_angle,
 
     if ( std::fabs( tackle_dist ) <= 1.0e-5 )
     {
+        M_state |= TACKLE_FAULT;
+        return;
+    }
+
+    // 3D ball extension: same reach-height gate as kickImpl()/stop_ball()/
+    // goalieCatch()/Stadium::collisions() -- an airborne ball above
+    // playerHeight() can't be tackled either. Short-circuited on
+    // is2dMode() so this is a provable no-op (ball posZ() is always 0.0
+    // in 2D mode) for existing/default deployments.
+    if ( ! ServerParam::instance().is2dMode()
+         && M_stadium.ball().posZ() > ServerParam::instance().playerHeight() )
+    {
+        M_stadium.failedTackleTaken( *this, foul );
         M_state |= TACKLE_FAULT;
         return;
     }

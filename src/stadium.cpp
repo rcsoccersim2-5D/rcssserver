@@ -888,6 +888,7 @@ Stadium::step()
     // send to monitors and write game log
     //
     sendDisp();
+    std::cout<<M_time<<" "<<M_ball->pos().x<<" "<<M_ball->pos().y<<" "<<M_ball->posZ()<<std::endl;
 
     //
     // reset player state
@@ -943,17 +944,20 @@ Stadium::incMovableObjects()
                                            M_ball_catcher->angleBodyCommitted() );
         M_ball->moveTo( M_ball_catcher->pos() + rpos );
 
-        // 3D ball extension: glue the held ball at the goalie's reach
-        // height every cycle while caught, and keep its vertical velocity
-        // pinned at 0 (belt-and-suspenders alongside Ball::incZ()'s own
+        // 3D ball extension: glue the held ball to the ground (z=0) every
+        // cycle while caught, and keep its vertical velocity pinned at 0
+        // (belt-and-suspenders alongside Ball::incZ()'s own
         // gravity-skip-while-held check, since this block runs
         // unconditionally regardless of incZ()'s internal state) -- see
         // plan_spec.md Step 4. No-op effect when is2dMode()==true, since
-        // playerHeight() is only meaningful/used in 3D mode and z stays 0
-        // either way in that mode's existing behavior.
+        // z is already 0 either way in that mode's existing behavior.
+        // BUG FIX: this previously set posZ to playerHeight() (the
+        // goalie's max reach height, e.g. 2.0) instead of 0.0, so a caught
+        // ball appeared to hover at player-height instead of resting at
+        // the goalie's hands/ground level.
         if ( ! ServerParam::instance().is2dMode() )
         {
-            M_ball->setPosZ( ServerParam::instance().playerHeight() );
+            M_ball->setPosZ( 0.0 );
         }
         M_ball->setVelZ( 0.0 );
     }
@@ -1714,9 +1718,17 @@ Stadium::collisions()
         // check ball to player
         for ( PlayerCont::reference p : M_players )
         {
+            // 3D ball extension: an airborne ball above a player's reach
+            // height should pass over them, not collide -- same reach-
+            // height gate used by kickImpl()/stop_ball()/goalieCatch() in
+            // player.cpp. Short-circuited on is2dMode() so this is a
+            // provable no-op (ball posZ() is always 0.0 in 2D mode) for
+            // existing/default deployments.
             if ( p->isEnabled()
                  && p != M_ball_catcher
-                 && M_ball->pos().distance2( p->pos() ) < std::pow( M_ball->size() + p->size(), 2 ) )
+                 && M_ball->pos().distance2( p->pos() ) < std::pow( M_ball->size() + p->size(), 2 )
+                 && ( ServerParam::instance().is2dMode()
+                      || M_ball->posZ() <= ServerParam::instance().playerHeight() ) )
             {
                 col = true;
                 p->collidedWithBall();
@@ -2450,7 +2462,14 @@ bool
 Stadium::doSendThink()
 {
     const char * think_command = "(think)";
-    const double max_msec_waited = 25 * 50;
+    // In synch_mode the server is supposed to wait for every connected
+    // agent to reply "(done)" before advancing to the next cycle. This was
+    // previously capped at 25*50 = 1250 msec, after which the cycle was
+    // force-advanced (DS_TRUE_BUT_INCOMPLETE) even if some clients hadn't
+    // responded yet. Set to an effectively unbounded wait (24 hours) so the
+    // server NEVER advances a cycle early in synch_mode -- it will always
+    // wait for every agent's "(done)", no matter how long that takes.
+    const double max_msec_waited = 1000.0 * 60.0 * 60.0 * 24.0;
     const int max_cycles_missed = 20;
 
     static int cycles_missed = 0; //number of cycles where someone missed
