@@ -18,15 +18,9 @@
  *                                                                         *
  ***************************************************************************/
 
-// NOTE (3D ball extension plan, Step 5 of 9): this class is scaffolding
-// only. It overrides serializeFSBall3D() so FullStateSenderPlayerV20
-// (fullstatesender.h/.cpp) has a concrete serializer to call, allowing
-// Step 5's new code paths to compile standalone. It is deliberately NOT
-// wired into the SerializerPlayer::factory() (no autoReg call in the
-// .cpp) and NOT added to Makefile.am/CMakeLists.txt yet -- picking the
-// real next-free protocol version number, formal autoReg registration,
-// and build-system wiring are explicitly Step 7's job ("Protocol/Version
-// Plumbing"). Do not register/build this class until Step 7 lands.
+// Player protocol v20 serializer for the 3D ball extension.  It emits raw
+// ball z/vz in normal visual observations and the existing 3D fullstate
+// ball layout.  Earlier serializers inherit legacy-preserving defaults.
 
 #ifndef SERIALIZERPLAYERSTDV20_H
 #define SERIALIZERPLAYERSTDV20_H
@@ -57,17 +51,20 @@ public:
                             const double & vel_y,
                             const double & vel_z ) const override;
 
-    // NOTE (3D ball extension plan, Step 6 of 9): overrides the two
-    // elevation-carrying serializeVisualObject() overloads (serializer.h,
-    // SerializerPlayer) to actually emit the trailing elevation field --
-    // the base SerializerPlayer default (inherited by every pre-v20
-    // subclass) drops it and reproduces the legacy byte layout instead.
+    // These three ball-only overloads emit the v20 vertical fields.  The
+    // SerializerPlayer defaults drop z/vz for protocols 1-19.
+    virtual
+    void serializeVisualObject( std::ostream & strm,
+                                const std::string & name,
+                                const int dir,
+                                const double & z ) const override;
+
     virtual
     void serializeVisualObject( std::ostream & strm,
                                 const std::string & name,
                                 const double & dist,
                                 const int dir,
-                                const double & elevation ) const override;
+                                const double & z ) const override;
 
     virtual
     void serializeVisualObject( std::ostream & strm,
@@ -76,7 +73,8 @@ public:
                                 const int dir,
                                 const double & dist_chg,
                                 const double & dir_chg,
-                                const double & elevation ) const override;
+                                const double & z,
+                                const double & vz ) const override;
 
 };
 

@@ -1,13 +1,13 @@
 ---
-applyTo: 'src/serverparam.*,src/pcombuilder.*,src/player_command_parser.ypp,src/player_command_tok.lpp,src/serializer*stdv20.*,src/serializermonitorstdv6.*,src/fullstatesender.*'
+applyTo: 'src/serverparam.*,src/pcombuilder.*,src/player_command_parser.ypp,src/player_command_tok.lpp,src/visualsenderplayer.*,src/serializer*stdv20.*,src/serializermonitorstdv6.*,src/fullstatesender.*,src/py_test_client.py'
 ---
 
 # 3D Protocol Migration Guide (External Consumers)
 
 ## TL;DR
 Protocol version **20** (player/coach serializers) and monitor version **6** add an OPT-IN 3D ball-flight extension (loft kicks, gravity, bouncing, height-aware goalie catch) to rcssserver. **Nothing changes for existing clients** unless they explicitly negotiate the new version number — this doc is for people updating an **agent team** (e.g. `helios-base`/`librcsc`) or **`rcssmonitor`** to consume the new fields.
-- Server-side gate: `2d_mode` `ServerParam` (default `true`) forces byte-identical legacy behavior regardless of what version a client negotiates; a server operator must explicitly set `2d_mode=false` to enable real 3D physics.
-- New wire additions (only sent to v20+ clients / v6+ monitors): a trailing `elevation` field in `(see)` ball entries, ball `z`/`vel_z` in `(fullstate)`, and ball z in the monitor `(show ...)` stream.
+- Server-side gate: `2d_mode` `ServerParam` (default `true`) keeps physics legacy-equivalent and keeps protocols 1-19 wire-identical. A v20 player still receives the new vertical fields, with zero values; an operator must set `2d_mode=false` to produce real vertical motion.
+- New wire additions (only sent to v20 players / v6+ monitors): raw `z` in every v20 `(see)` ball entry, raw `vz` when planar change fields are also present, ball `z`/`vz` in `(fullstate)`, and ball z in the monitor `(show ...)` stream.
 - New commands: `kick`/`long_kick` gain an optional 3rd `loft` argument; a brand-new `chest_trap` command is added (renamed from its original working name `stop_ball`).
 - **Reference implementations that need updating first**: `librcsc` (client protocol library) and `helios-base` (sample agent team) — see Related Repositories below. `rcssmonitor` needs a v6 monitor-serializer consumer to render the new ball-z field.
 
@@ -34,21 +34,43 @@ This is a documentation-only cross-reference for people who do NOT work in this 
 - Offside enforcement: `Player::chest_trap()` also calls `Stadium::kickTaken( *this, PVector(0,0), 0.0 )` right after `Stadium::chestTrap()`, reusing the SAME referee fan-out dispatch a real kick uses (`Stadium::kickTaken()` iterates `M_referees` calling `Referee::kickTaken()`), so an offside-positioned player performing a chest trap is marked exactly as a kick would mark them (via `OffsideRef::kickTaken()` → `setOffsideMark()`). The zero accel/accel_z means no additional impulse is applied to the ball — the call exists purely for referee notification.
 - Primary use case: a 3D-aware agent that wants to deliberately "trap"/deaden a bouncing or airborne ball instead of just receiving whatever velocity physics left it with.
 
-### `(see)` — new trailing `elevation` field on ball entries
-- Only present for clients negotiating `version >= 20`. `elevation = atan2(ball.posZ(), distance)`, subject to the same noise model as distance (a dimensionless noisy-to-actual distance ratio applied multiplicatively, NOT run through the meters-only `calcDist()` noise formula — that would produce nonsensical snap-to-zero discontinuities near `elevation≈0`).
-- Legacy (`version < 20`) clients get the exact same ball entry format as before — the new field is appended only by the version-20 serializer subclass via ordinary virtual dispatch, never behind a runtime version check inside sender code.
-- Coach `(look)` output gets an equivalent raw (non-noised) z field, since the coach channel is unnoised by design.
+### Player `(see)` — raw ball `z` and conditional `vz`
+
+The normal ball name `(b)` and close/peripheral name `(B)` use the same numeric layouts:
+
+| Observation | Protocols 1-19 | Protocol v20 |
+|---|---|---|
+| Low quality | `((b) dir)` | `((b) dir z)` |
+| High quality, no change fields | `((b) dist dir)` | `((b) dist dir z)` |
+| High quality, with change fields | `((b) dist dir dist_chg dir_chg)` | `((b) dist dir dist_chg dir_chg z vz)` |
+
+- `z` is raw `Ball::posZ()` in metres. It is present in every v20 ball observation, including low quality where distance is absent.
+- `vz` is raw `Ball::velZ()` in metres per simulation cycle. It is present exactly when `dist_chg` and `dir_chg` are present.
+- `z` and `vz` are not quantized, clamped, derived, or passed through visual observation noise. Existing `dist`, `dir`, `dist_chg`, and `dir_chg` keep their established 2D meaning and noise behavior.
+- Flags, goals, lines, and players have no new suffix. Apply these rules only after recognizing `(b)` or `(B)`.
+- Protocols 1-19 keep their exact old ball layouts through legacy serializer defaults. Protocol v20 replaces the unreleased elevation draft in place; clients do not need to support both v20 shapes.
+- Coach `(look)` remains a separate, unnoised channel with its existing raw-z extension. This player change does not add coach `vz`.
+
+#### Client parsing checklist
+
+1. Negotiate player protocol v20 explicitly with `(init TeamName (version 20))`.
+2. Identify the object as normal `(b)` or close/peripheral `(B)` before applying v20 rules. Never strip a trailing value from flags, goals, lines, or players.
+3. Decode exact ball numeric counts: `2` means `dir,z`; `3` means `dist,dir,z`; `6` means `dist,dir,dist_chg,dir_chg,z,vz`. Reject other v20 ball counts instead of guessing.
+4. Store `z` for every v20 ball observation. Treat `vz` as optional and unavailable in the 2- and 3-value forms; do not report an omitted `vz` as zero.
+5. Do not reconstruct planar x/y from low-quality `dir,z` alone because distance is absent. Keep last-known planar state explicitly stale or unavailable.
+6. Under `2d_mode=true`, zero `z/vz` values are real present fields, not missing data.
+7. Keep the legacy `1 / 2 / 4` numeric-count parser for protocols 1-19.
 
 ### `(fullstate)` — new ball `z`/`vel_z` fields
 - Only for `version >= 20` (fullstate is player-only; there is no coach-side fullstate in this protocol at all).
-- Format mirrors the existing `(fullstate ... (b) (pos x y) (vel vx vy) ...)`-style ball block, with `z`/`vel_z` appended via the new `serializeFSBall3D(...)` virtual.
+- Exact v20 ball block: `((b) x y z vx vy vz)`. This task does not change that existing layout.
 
 ### Monitor `(show ...)` — new ball z field
 - Only for monitor protocol `version >= 6`. `SerializerMonitorJSON` gets the equivalent field appended for JSON-protocol monitors regardless of numeric version (JSON has no version-int slot).
 
 ## `2d_mode` From a Client's Perspective
-- If the **server** runs `2d_mode=true` (the default): behaves EXACTLY like a pre-extension server for every client, at every negotiated version — no client-side change is ever required.
-- If the **server** runs `2d_mode=false`: legacy clients (negotiating `version < 20`) are STILL completely unaffected in what they receive (no new fields, same message shapes) — but the actual simulated ball physics they're blind to now includes vertical motion; a legacy client's flat 2D world-model will simply never learn about ball height and may misjudge situations where the ball is airborne (e.g. it "vanishes" behind a header instead of being interceptable). Only a `version >= 20` client gets the observational data (`elevation`, fullstate z, monitor z) needed to react correctly to 3D ball state.
+- If the **server** runs `2d_mode=true` (the default): physics is legacy-equivalent. Protocols 1-19 receive byte-identical legacy messages; protocol v20 receives its stable new shapes with `z=0` and, when present, `vz=0`.
+- If the **server** runs `2d_mode=false`: legacy clients (negotiating `version < 20`) remain unchanged on the wire but are blind to vertical motion. A v20 player receives raw normal-see `z/vz` and fullstate `z/vz` needed to model the airborne ball.
 
 ## What `rcssmonitor` Needs to Change
 - Negotiate `(dispinit version 6)` (or the JSON protocol equivalent) instead of the current max version to start receiving ball z in the `(show ...)` stream — see `monitor-protocol.instructions.md` for exactly which `SerializerMonitorStdv6`/`SerializerMonitorJSON` fields carry it.
@@ -62,7 +84,7 @@ Per this repo's root `copilot-instructions.md` Related Repositories table, these
 - **`rcssmonitor`** (`../../rcssmonitor`) — see dedicated section above.
 
 ## Important Notes
-- **Nothing here changes if you don't ask for it.** Every wire addition in this extension is either gated by a higher negotiated protocol version, or by the server-side `2d_mode` flag, or both — there is no scenario where an existing, unmodified client/monitor observes a behavior or format change.
+- **Nothing on legacy protocol versions changes if you don't negotiate the new version.** A client requesting v20 opts into its stable extra fields even when the server remains in 2D mode.
 - **`2d_mode` and protocol version are orthogonal knobs** — don't conflate "server enables 3D physics" with "client understands 3D fields"; both must be true simultaneously to get real 3D gameplay end-to-end.
 - The formulas underlying `gravity`/`ball_bounce_restitution`/`height_power_cost`/etc. were hand-ported (not shared/merged code) from the `3d-kick-lab` sandbox's `physics.js` — see that repo's own copilot-instructions.md, which now documents its role as historical/reference now that porting is complete. **(2026-07-10 rework)**: `air_decay`, `loft_power_cost`, and `ball_bounce_friction` have all been REMOVED from both the sandbox and this server's `ServerParam` — a kick's horizontal/vertical split is now pure geometry (`cos(loft)`/`sin(loft)` of the same `eff_power`, no extra cost for aiming upward), the ball has ZERO horizontal friction while airborne (ground-only `ball_decay` friction, applied only once `pos_z<=0`), and `ball_bounce_restitution` alone now scales the ball's ENTIRE velocity vector (vx, vy, and the just-reflected vz) on every ground/post/crossbar bounce, replacing the old vz-only-restitution-plus-separate-friction-coupling model. `gravity`'s default also changed `0.15` → `0.1`, and the former separate `player_reach_height` concept was merged into `player_height` (one field is now both the visual/collision height and the max ball-z still considered kickable/headable).
 

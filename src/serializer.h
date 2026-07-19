@@ -396,32 +396,31 @@ public:
                << ')';
       }
 
-    // NOTE (3D ball extension plan, Step 6 of 9; refactored to the
-    // standard version-subclass pattern): these two overloads are ball-
-    // only and carry a trailing noisy elevation-angle field. Unlike the 5
-    // pre-existing overloads above (which stay non-virtual/unchanged),
-    // these are VIRTUAL so a new protocol-version subclass can override
-    // them to actually emit the field -- see SerializerPlayerStdv20
-    // (serializerplayerstdv20.h/.cpp). The default body here reproduces
-    // the LEGACY (pre-Step-6) byte layout exactly (elevation dropped, same
-    // output as the corresponding fewer-argument overload above), so every
-    // pre-v20 serializer subclass that doesn't override these continues to
-    // behave byte-identically to before Step 6 existed. Call sites
-    // (visualsenderplayer.cpp's sendHighBall) call these unconditionally;
-    // virtual dispatch alone decides whether the field is actually sent.
+    // Ball-only vertical-state adapters.  The visual sender calls these
+    // unconditionally for every protocol version.  Their default bodies
+    // deliberately reproduce the legacy layouts by dropping z/vz, while
+    // SerializerPlayerStdv20 overrides them to emit the extra fields.
+    // This keeps protocol selection in the serializer factory/virtual
+    // dispatch rather than adding version checks to the sender.
+    virtual
+    void serializeVisualObject( std::ostream & strm,
+                                const std::string & name,
+                                const int dir,
+                                const double & /* z */ ) const
+      {
+          strm << " (" << name << ' ' << dir << ')';
+      }
+
     virtual
     void serializeVisualObject( std::ostream & strm,
                                 const std::string & name,
                                 const double & dist,
                                 const int dir,
-                                const double & /* elevation */ ) const
+                                const double & /* z */ ) const
       {
           strm << " (" << name << ' ' << dist << ' ' << dir << ')';
       }
 
-    // "velocity present" variant of the elevation-carrying overload above,
-    // mirroring the existing dist/dir/dist_chg/dir_chg overload. Same
-    // legacy-reproducing default as above (elevation dropped).
     virtual
     void serializeVisualObject( std::ostream & strm,
                                 const std::string & name,
@@ -429,7 +428,8 @@ public:
                                 const int dir,
                                 const double & dist_chg,
                                 const double & dir_chg,
-                                const double & /* elevation */ ) const
+                                const double & /* z */,
+                                const double & /* vz */ ) const
       {
           strm << " (" << name << ' ' << dist << ' ' << dir
                << ' ' << dist_chg << ' ' << dir_chg

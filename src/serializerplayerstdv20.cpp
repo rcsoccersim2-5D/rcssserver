@@ -62,12 +62,23 @@ SerializerPlayerStdv20::serializeFSBall3D( std::ostream & strm,
 void
 SerializerPlayerStdv20::serializeVisualObject( std::ostream & strm,
                                                const std::string & name,
+                                               const int dir,
+                                               const double & z ) const
+{
+    strm << " (" << name << ' ' << dir
+         << ' ' << z
+         << ')';
+}
+
+void
+SerializerPlayerStdv20::serializeVisualObject( std::ostream & strm,
+                                               const std::string & name,
                                                const double & dist,
                                                const int dir,
-                                               const double & elevation ) const
+                                               const double & z ) const
 {
     strm << " (" << name << ' ' << dist << ' ' << dir
-         << ' ' << elevation
+         << ' ' << z
          << ')';
 }
 
@@ -78,11 +89,12 @@ SerializerPlayerStdv20::serializeVisualObject( std::ostream & strm,
                                                const int dir,
                                                const double & dist_chg,
                                                const double & dir_chg,
-                                               const double & elevation ) const
+                                               const double & z,
+                                               const double & vz ) const
 {
     strm << " (" << name << ' ' << dist << ' ' << dir
          << ' ' << dist_chg << ' ' << dir_chg
-         << ' ' << elevation
+         << ' ' << z << ' ' << vz
          << ')';
 }
 
@@ -91,11 +103,8 @@ const
 SerializerPlayer::Ptr
 SerializerPlayerStdv20::create()
 {
-    // NOTE (Step 5 scaffolding): reuses the v18 SerializerCommon for now.
-    // Step 7 will confirm/introduce whatever SerializerCommon version is
-    // actually appropriate for the finalized protocol version number, and
-    // will add the autoReg() registration that makes this reachable via
-    // SerializerPlayer::factory().
+    // Protocol v20 does not change common parameter serialization, so it
+    // reuses the latest SerializerCommon implementation (v18).
     SerializerCommon::Creator cre;
     if ( ! SerializerCommon::factory().getCreator( cre, 18 ) )
     {
@@ -107,9 +116,8 @@ SerializerPlayerStdv20::create()
 }
 
 namespace {
-// 3D ball extension plan, Step 7 ("Protocol/Version Plumbing"): registered
-// as version 20 -- confirmed non-colliding by re-grepping serializerplayerstdv18.cpp,
-// whose highest registration is v19 (SerializerPlayerStdv18::create at version 19).
+// Protocol v20 is the first player serializer that emits vertical ball
+// state in normal visual observations and fullstate.
 RegHolder v20 = SerializerPlayer::factory().autoReg( &SerializerPlayerStdv20::create, 20 );
 }
 
